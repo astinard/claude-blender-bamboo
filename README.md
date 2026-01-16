@@ -5,6 +5,8 @@ Automated pipeline connecting Blender 3D modeling to Bamboo Labs 3D printers for
 ## Features
 
 - **Blender Automation**: Create 3D models programmatically with Python
+- **iOS LiDAR Scanning**: Process scans from Polycam, 3D Scanner App, and more
+- **Case/Mount Generation**: Auto-generate protective cases, stands, and mounts from scans
 - **Printer Communication**: MQTT-based control of Bamboo Labs printers
 - **Full Pipeline**: Model creation → Validation → Upload → Print → Monitor
 - **CLI Interface**: Command-line tool for all operations
@@ -69,23 +71,26 @@ python -m src.pipeline.cli print model.stl --start --monitor
 ```
 claude-blender-bamboo-2026-01-14/
 ├── src/
-│   ├── blender/           # Blender automation
-│   │   ├── primitives.py  # Shape generators
-│   │   ├── exporter.py    # STL/OBJ export
-│   │   ├── mesh_utils.py  # Mesh validation
-│   │   └── runner.py      # Headless CLI
-│   ├── printer/           # Bamboo Labs communication
-│   │   ├── connection.py  # MQTT connection
-│   │   ├── commands.py    # Print commands
-│   │   ├── file_transfer.py # FTP upload
-│   │   └── mock.py        # Mock printer
-│   └── pipeline/          # Orchestration
-│       ├── workflow.py    # Full pipeline
-│       └── cli.py         # CLI interface
-├── tests/                 # Test suite
-├── config/                # Configuration
-│   └── settings.py        # Settings and defaults
-├── output/                # Generated models
+│   ├── blender/              # Blender automation
+│   │   ├── primitives.py     # Shape generators
+│   │   ├── exporter.py       # STL/OBJ export
+│   │   ├── mesh_utils.py     # Mesh validation
+│   │   ├── runner.py         # Headless CLI
+│   │   ├── scan_processor.py # LiDAR scan import/repair
+│   │   ├── case_generator.py # Case/mount/stand generation
+│   │   └── scan_runner.py    # Headless scan processing
+│   ├── printer/              # Bamboo Labs communication
+│   │   ├── connection.py     # MQTT connection
+│   │   ├── commands.py       # Print commands
+│   │   ├── file_transfer.py  # FTP upload
+│   │   └── mock.py           # Mock printer
+│   └── pipeline/             # Orchestration
+│       ├── workflow.py       # Full pipeline
+│       └── cli.py            # CLI interface
+├── tests/                    # Test suite
+├── config/                   # Configuration
+│   └── settings.py           # Settings and defaults
+├── output/                   # Generated models
 └── requirements.txt
 ```
 
@@ -140,6 +145,97 @@ Options:
   --mock             Use mock printer
   (plus all create options)
 ```
+
+### `scan` - Process LiDAR scans
+
+Process 3D scans from iOS LiDAR apps (Polycam, 3D Scanner App, KIRI Engine, Scaniverse, Heges).
+
+```bash
+# Analyze a scan
+python -m src.pipeline.cli scan analyze phone_scan.stl
+
+# Repair mesh issues (holes, non-manifold edges)
+python -m src.pipeline.cli scan repair phone_scan.stl --output repaired.stl --smooth 2
+
+# Scale to real dimensions
+python -m src.pipeline.cli scan scale phone_scan.stl --target-width 150 --output scaled.stl
+
+# Reduce polygon count
+python -m src.pipeline.cli scan decimate phone_scan.stl --ratio 0.5 --output decimated.stl
+
+# Make hollow (save material)
+python -m src.pipeline.cli scan hollow phone_scan.stl --wall-thickness 2.0 --output hollow.stl
+
+# Generate protective case
+python -m src.pipeline.cli scan case phone_scan.stl --case-type full_case --output case.stl
+
+# Generate wall mount
+python -m src.pipeline.cli scan mount controller.stl --output wall_mount.stl
+
+# Generate angled stand
+python -m src.pipeline.cli scan stand tablet.stl --angle 60 --output stand.stl
+
+# Generate cradle holder
+python -m src.pipeline.cli scan cradle phone_scan.stl --output cradle.stl
+```
+
+#### Scan Options
+
+| Option | Description |
+|--------|-------------|
+| `--output, -o` | Output file path |
+| `--format` | Export format (stl, obj, ply) |
+| `--wall-thickness` | Wall thickness in mm |
+| `--clearance` | Clearance gap for fit (mm) |
+| `--case-type` | Case type (full_case, bumper, cradle, sleeve) |
+| `--angle` | Stand angle in degrees |
+| `--smooth` | Smoothing iterations |
+| `--target-width/height/depth` | Target dimensions for scaling |
+| `--target-faces` | Target face count for decimation |
+| `--ratio` | Decimation ratio (0.5 = half) |
+
+## iOS LiDAR Workflow
+
+### Supported Apps
+
+| App | Export Format | Best For |
+|-----|--------------|----------|
+| **Polycam** | STL, OBJ, PLY | High-quality scans, textures |
+| **3D Scanner App** | STL, OBJ | Quick scans, sharing |
+| **KIRI Engine** | STL, OBJ | Room scanning |
+| **Scaniverse** | STL, OBJ | Object scanning |
+| **Heges** | STL, OBJ | Detailed models |
+
+### Workflow Example
+
+1. **Scan object** with iOS app (Polycam recommended)
+2. **Export as STL/OBJ** and transfer to Mac (AirDrop, iCloud, email)
+3. **Process scan**:
+   ```bash
+   # Analyze scan quality
+   python -m src.pipeline.cli scan analyze my_phone.stl
+
+   # Repair any issues
+   python -m src.pipeline.cli scan repair my_phone.stl --output repaired.stl
+
+   # Generate case
+   python -m src.pipeline.cli scan case repaired.stl --case-type full_case --output phone_case.stl
+   ```
+4. **Print case**:
+   ```bash
+   python -m src.pipeline.cli print output/phone_case.stl --mock --start --monitor
+   ```
+
+### Case Types
+
+| Type | Description |
+|------|-------------|
+| `full_case` | Wraps entire object with opening |
+| `bumper` | Protects edges only |
+| `cradle` | Holds object from below |
+| `sleeve` | Slides over object |
+| `mount` | Wall/desk mount with screw holes |
+| `stand` | Angled display stand |
 
 ## Configuration
 
