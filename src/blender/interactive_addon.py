@@ -840,6 +840,160 @@ def execute_command(cmd: dict) -> dict:
             result["data"]["regions"] = ['all', 'top', 'bottom', 'front', 'back', 'left', 'right', 'sides']
             result["data"]["aliases"] = REGION_ALIASES
 
+        elif action in ('cross_section', 'section', 'slice'):
+            # Create cross-section at specified height for laser cutting
+            height = float(params.get('height', params.get('z', 0)))
+            axis = params.get('axis', 'Z').upper()
+            output_file = params.get('file', None)
+
+            try:
+                import sys
+                sys.path.insert(0, str(Path(__file__).parent.parent))
+                from laser.cross_section import CrossSectionTool
+                from laser.svg_export import SVGExporter
+
+                tool = CrossSectionTool()
+                section_result = tool.section_at_height(obj, height, axis)
+
+                if not section_result.paths:
+                    return {"success": False, "message": f"No intersection at height {height}mm"}
+
+                # Export if file specified
+                if output_file:
+                    output_path = str(Path(output_file).resolve())
+                    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+                    exporter = SVGExporter()
+                    exporter.save(section_result.paths, output_path, style='cut')
+                    result["data"]["filepath"] = output_path
+
+                result["message"] = f"Cross-section at {height}mm: {len(section_result.paths)} paths"
+                result["data"]["height"] = height
+                result["data"]["paths"] = len(section_result.paths)
+                result["data"]["width"] = section_result.width
+                result["data"]["depth"] = section_result.depth
+
+            except Exception as e:
+                return {"success": False, "message": f"Cross-section error: {str(e)}"}
+
+        elif action in ('project', 'projection', '2d', 'outline'):
+            # Project 3D object to 2D outline for laser cutting
+            view = params.get('view', params.get('direction', 'top')).lower()
+            output_file = params.get('file', None)
+
+            try:
+                import sys
+                sys.path.insert(0, str(Path(__file__).parent.parent))
+                from laser.projection import ProjectionTool
+                from laser.svg_export import SVGExporter
+
+                tool = ProjectionTool()
+                proj_result = tool.project(obj, view)
+
+                if not proj_result.paths:
+                    return {"success": False, "message": f"No outline from {view} view"}
+
+                # Export if file specified
+                if output_file:
+                    output_path = str(Path(output_file).resolve())
+                    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
+                    exporter = SVGExporter()
+                    exporter.save(proj_result.paths, output_path, style='cut')
+                    result["data"]["filepath"] = output_path
+
+                result["message"] = f"{view.title()} view projection: {len(proj_result.paths)} paths"
+                result["data"]["view"] = view
+                result["data"]["paths"] = len(proj_result.paths)
+                result["data"]["width"] = proj_result.width
+                result["data"]["height"] = proj_result.height
+
+            except Exception as e:
+                return {"success": False, "message": f"Projection error: {str(e)}"}
+
+        elif action in ('export_svg', 'svg', 'laser_svg'):
+            # Export current object to SVG for laser cutting
+            filepath = params.get('file', 'output/laser.svg')
+            filepath = str(Path(filepath).resolve())
+            view = params.get('view', 'top').lower()
+            style = params.get('style', 'cut')
+
+            try:
+                import sys
+                sys.path.insert(0, str(Path(__file__).parent.parent))
+                from laser.projection import ProjectionTool
+                from laser.svg_export import SVGExporter
+
+                Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+
+                tool = ProjectionTool()
+                proj_result = tool.project(obj, view)
+
+                exporter = SVGExporter()
+                exporter.save(proj_result.paths, filepath, style=style)
+
+                result["message"] = f"Exported SVG ({view} view) to {filepath}"
+                result["data"]["filepath"] = filepath
+                result["data"]["paths"] = len(proj_result.paths)
+
+            except Exception as e:
+                return {"success": False, "message": f"SVG export error: {str(e)}"}
+
+        elif action in ('export_dxf', 'dxf', 'laser_dxf'):
+            # Export current object to DXF for laser cutting
+            filepath = params.get('file', 'output/laser.dxf')
+            filepath = str(Path(filepath).resolve())
+            view = params.get('view', 'top').lower()
+            layer = params.get('layer', 'cut')
+
+            try:
+                import sys
+                sys.path.insert(0, str(Path(__file__).parent.parent))
+                from laser.projection import ProjectionTool
+                from laser.dxf_export import DXFExporter
+
+                Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+
+                tool = ProjectionTool()
+                proj_result = tool.project(obj, view)
+
+                exporter = DXFExporter()
+                exporter.save(proj_result.paths, filepath, layer=layer)
+
+                result["message"] = f"Exported DXF ({view} view) to {filepath}"
+                result["data"]["filepath"] = filepath
+                result["data"]["paths"] = len(proj_result.paths)
+
+            except Exception as e:
+                return {"success": False, "message": f"DXF export error: {str(e)}"}
+
+        elif action in ('laser_preset', 'preset', 'laser_settings'):
+            # Get laser preset for material
+            material = params.get('material', 'wood')
+            thickness = float(params.get('thickness', 3.0))
+            operation = params.get('operation', 'cut')
+
+            try:
+                import sys
+                sys.path.insert(0, str(Path(__file__).parent.parent))
+                from laser.presets import get_preset_for_material, describe_preset
+
+                preset = get_preset_for_material(material, thickness, operation)
+                if preset:
+                    result["message"] = f"Laser preset for {material} {thickness}mm {operation}"
+                    result["data"] = {
+                        "name": preset.name,
+                        "power": preset.power,
+                        "speed": preset.speed,
+                        "passes": preset.passes,
+                        "air_assist": preset.air_assist,
+                        "fire_risk": preset.fire_risk,
+                        "notes": preset.notes,
+                    }
+                else:
+                    return {"success": False, "message": f"No preset for {material} {operation}"}
+
+            except Exception as e:
+                return {"success": False, "message": f"Preset error: {str(e)}"}
+
         elif action == 'execute_script':
             # Execute custom Python script in Blender
             script = params.get('script', '')
@@ -880,6 +1034,12 @@ def execute_command(cmd: dict) -> dict:
                 "list_colors - Show available color names",
                 "list_regions - Show available regions (top, bottom, etc.)",
                 "export_3mf <file> - Export as 3MF with multi-color (for Bambu)",
+                "--- Laser Cutting Commands ---",
+                "cross_section <height> - Create cross-section at height",
+                "project [view] - Project to 2D (top/front/side)",
+                "export_svg <file> - Export SVG for laser cutting",
+                "export_dxf <file> - Export DXF for laser cutting",
+                "laser_preset <material> - Get laser settings for material",
                 "--- Regions: all, top, bottom, front, back, left, right, sides ---",
             ]
 

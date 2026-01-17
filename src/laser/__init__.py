@@ -33,6 +33,13 @@ from .presets import (
     get_preset,
     get_preset_for_material,
 )
+from .job_control import (
+    LaserJob,
+    LaserJobLayer,
+    LaserJobStatus,
+    LaserJobController,
+    create_laser_job,
+)
 
 __all__ = [
     # Cross Section
@@ -58,4 +65,10 @@ __all__ = [
     "LASER_PRESETS",
     "get_preset",
     "get_preset_for_material",
+    # Job Control
+    "LaserJob",
+    "LaserJobLayer",
+    "LaserJobStatus",
+    "LaserJobController",
+    "create_laser_job",
 ]
