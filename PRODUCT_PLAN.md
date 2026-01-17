@@ -233,7 +233,7 @@ User Voice/Text
 | P3.7 | Version History | Track all design iterations | 📋 Planned |
 | P3.8 | Voice Control | Hands-free operation | 📋 Planned |
 | P3.9 | Remote Monitoring | Camera feed, notifications | 📋 Planned |
-| P3.10 | Cost Estimation | Material usage, time, cost | 📋 Planned |
+| P3.10 | Cost Estimation | Material usage, time, cost | ✅ Done |
 
 ---
 

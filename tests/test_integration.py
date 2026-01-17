@@ -385,6 +385,75 @@ def test_parametric_edits():
     return True
 
 
+def test_cost_estimation():
+    """Test cost estimation capabilities."""
+    print("Testing: Cost Estimation")
+
+    from estimator.cost_estimator import (
+        CostEstimator, estimate_print_cost, estimate_laser_cost,
+        format_estimate, ManufacturingMethod
+    )
+
+    estimator = CostEstimator()
+
+    # Test print estimation
+    print_estimate = estimator.estimate_print(
+        volume_mm3=50000,  # 50 cm³
+        material="pla",
+        layer_height_mm=0.2,
+        infill_percent=20,
+        model_name="Test Model",
+    )
+
+    assert print_estimate is not None, "Should return estimate"
+    assert print_estimate.total_volume_mm3 == 50000, "Should have correct volume"
+    assert print_estimate.total_weight_grams > 0, "Should calculate weight"
+    assert print_estimate.print_time_seconds > 0, "Should estimate time"
+    assert print_estimate.cost_breakdown.total_cost > 0, "Should calculate cost"
+
+    # Test multi-color print
+    multicolor_estimate = estimator.estimate_print(
+        volume_mm3=30000,
+        material="pla",
+        color_volumes={"White": 20000, "Red": 10000},
+    )
+
+    assert len(multicolor_estimate.material_usage) == 2, "Should have 2 color entries"
+    total_vol = sum(m.volume_mm3 for m in multicolor_estimate.material_usage)
+    assert total_vol == 30000, "Color volumes should sum to total"
+
+    # Test laser estimation
+    laser_estimate = estimator.estimate_laser_cut(
+        path_length_mm=1000,
+        travel_length_mm=200,
+        area_mm2=10000,
+        path_count=10,
+        material="plywood_3mm",
+    )
+
+    assert laser_estimate is not None, "Should return laser estimate"
+    assert laser_estimate.cut_time_seconds > 0, "Should estimate cut time"
+    assert laser_estimate.cost_breakdown.total_cost > 0, "Should calculate cost"
+
+    # Test convenience functions
+    quick_print = estimate_print_cost(10000, "petg")
+    assert quick_print.total_cost > 0, "Quick print estimate should work"
+
+    quick_laser = estimate_laser_cost(500, "acrylic_3mm")
+    assert quick_laser.total_cost > 0, "Quick laser estimate should work"
+
+    # Test formatting
+    formatted = format_estimate(print_estimate)
+    assert "MATERIAL USAGE" in formatted, "Format should include material section"
+    assert "COST BREAKDOWN" in formatted, "Format should include cost section"
+    assert "TOTAL" in formatted, "Format should include total"
+
+    print(f"  Print estimate: {print_estimate.print_time_formatted}, ${print_estimate.total_cost:.2f}")
+    print(f"  Laser estimate: {laser_estimate.total_time_formatted}, ${laser_estimate.total_cost:.2f}")
+    print("  ✓ All cost estimation tests passed")
+    return True
+
+
 def test_latency_requirements():
     """Test that operations meet latency requirements (<5ms)."""
     print("Testing: Latency Requirements")
@@ -441,6 +510,7 @@ def run_all_tests():
         test_command_interpreter,
         test_mesh_repair,
         test_parametric_edits,
+        test_cost_estimation,
         test_latency_requirements,
     ]
 
