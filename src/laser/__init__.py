@@ -40,6 +40,13 @@ from .job_control import (
     LaserJobController,
     create_laser_job,
 )
+from .path_optimizer import (
+    PathOptimizer,
+    OptimizedPathSet,
+    OptimizationStats,
+    optimize_paths,
+    format_optimization_stats,
+)
 
 __all__ = [
     # Cross Section
@@ -71,4 +78,10 @@ __all__ = [
     "LaserJobStatus",
     "LaserJobController",
     "create_laser_job",
+    # Path Optimizer
+    "PathOptimizer",
+    "OptimizedPathSet",
+    "OptimizationStats",
+    "optimize_paths",
+    "format_optimization_stats",
 ]
