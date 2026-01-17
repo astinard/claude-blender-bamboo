@@ -261,6 +261,7 @@ class LaserJobController:
 
         root = ET.Element('svg')
         root.set('xmlns', 'http://www.w3.org/2000/svg')
+        root.set('xmlns:inkscape', 'http://www.inkscape.org/namespaces/inkscape')
         root.set('width', f'{width:.3f}mm')
         root.set('height', f'{height:.3f}mm')
         root.set('viewBox', f'0 0 {width:.3f} {height:.3f}')
