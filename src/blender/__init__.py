@@ -13,6 +13,19 @@ from .mesh_repair import (
     analyze_mesh,
     format_analysis,
 )
+from .parametric_edits import (
+    FeatureDetector,
+    ParametricEditor,
+    DetectedFeature,
+    FeatureType,
+    EditOperation,
+    EditResult,
+    detect_features,
+    resize_holes,
+    format_feature,
+    format_edit_result,
+    interpret_parametric_command,
+)
 
 # Blender-dependent modules are imported conditionally
 try:
@@ -38,4 +51,16 @@ __all__ = [
     # Mesh repair (Blender)
     "MeshRepairer",
     "HAS_BLENDER_REPAIR",
+    # Parametric edits
+    "FeatureDetector",
+    "ParametricEditor",
+    "DetectedFeature",
+    "FeatureType",
+    "EditOperation",
+    "EditResult",
+    "detect_features",
+    "resize_holes",
+    "format_feature",
+    "format_edit_result",
+    "interpret_parametric_command",
 ]

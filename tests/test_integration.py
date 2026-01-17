@@ -331,6 +331,60 @@ def test_mesh_repair():
     return True
 
 
+def test_parametric_edits():
+    """Test parametric editing capabilities."""
+    print("Testing: Parametric Edits")
+
+    import math
+    from blender.parametric_edits import (
+        FeatureDetector, ParametricEditor, FeatureType,
+        detect_features, resize_holes, interpret_parametric_command
+    )
+
+    # Create a circle (hole) with 10mm diameter
+    circle_points = []
+    for i in range(32):
+        angle = 2 * math.pi * i / 32
+        x = 50 + 5 * math.cos(angle)
+        y = 50 + 5 * math.sin(angle)
+        circle_points.append((x, y))
+
+    paths = [circle_points]
+    inner_flags = [True]
+
+    # Test feature detection
+    features = detect_features(paths, inner_flags)
+    assert len(features) >= 1, "Should detect at least one feature"
+    assert features[0].feature_type == FeatureType.HOLE, "Should detect as hole"
+    assert 9 < features[0].size < 11, f"Diameter should be ~10mm, got {features[0].size}"
+
+    # Test resize operation
+    result = resize_holes(paths, inner_flags=inner_flags, delta=2)
+    assert result.success, "Resize should succeed"
+    assert result.features_modified >= 1, "Should modify at least one feature"
+    assert len(result.modified_features) >= 1, "Should have modified features"
+    new_size = result.modified_features[0].size
+    assert 11 < new_size < 13, f"New size should be ~12mm, got {new_size}"
+
+    # Test command interpretation
+    cmd = interpret_parametric_command("make all holes 2mm bigger")
+    assert cmd is not None, "Should parse command"
+    assert cmd["action"] == "resize_holes", "Should be resize action"
+    assert cmd["params"]["delta"] == 2.0, "Should have 2mm delta"
+
+    cmd = interpret_parametric_command("shrink holes by 10%")
+    assert cmd is not None, "Should parse percentage command"
+    assert cmd["params"]["scale"] < 1.0, "Scale should be less than 1 for shrink"
+
+    cmd = interpret_parametric_command("offset edges outward 1mm")
+    assert cmd is not None, "Should parse offset command"
+    assert cmd["action"] == "offset_contours", "Should be offset action"
+    assert cmd["params"]["offset"] == 1.0, "Should have 1mm offset"
+
+    print("  ✓ All parametric edit tests passed")
+    return True
+
+
 def test_latency_requirements():
     """Test that operations meet latency requirements (<5ms)."""
     print("Testing: Latency Requirements")
@@ -386,6 +440,7 @@ def run_all_tests():
         test_3mf_export_functions,
         test_command_interpreter,
         test_mesh_repair,
+        test_parametric_edits,
         test_latency_requirements,
     ]
 
