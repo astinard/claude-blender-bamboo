@@ -12,31 +12,23 @@ from typing import Dict, Optional, List
 @dataclass
 class LaserPreset:
     """Laser operation preset for a specific material and operation."""
-    # Identity
+    # Required fields (no defaults)
     name: str
     material: str
     thickness: float  # mm
     operation: str  # 'cut', 'engrave', 'score'
-
-    # Power settings
     power: int  # 0-100%
-    power_min: int = 0  # For variable power (0 = same as power)
-
-    # Speed settings
     speed: int  # mm/s
-    speed_min: int = 0  # For variable speed
 
-    # Pass settings
+    # Optional fields (with defaults)
+    power_min: int = 0  # For variable power (0 = same as power)
+    speed_min: int = 0  # For variable speed
     passes: int = 1
     pass_depth: float = 0.0  # Z step per pass (0 = no step)
-
-    # Advanced settings
     air_assist: bool = True
     focus_offset: float = 0.0  # mm from surface
     line_interval: float = 0.1  # mm (for engraving)
     bidirectional: bool = True  # For engraving
-
-    # Safety
     fire_risk: str = "low"  # 'low', 'medium', 'high'
     notes: str = ""
 
