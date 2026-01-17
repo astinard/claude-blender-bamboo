@@ -1,0 +1,666 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JARVIS - Fab Lab Control</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: #0a0a0f;
+            color: #00d4ff;
+            font-family: 'Courier New', monospace;
+            overflow: hidden;
+            height: 100vh;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            grid-template-rows: 80px 1fr 150px;
+            height: 100vh;
+            gap: 10px;
+            padding: 10px;
+        }
+
+        .header {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0 20px;
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            background: rgba(0, 20, 40, 0.8);
+        }
+
+        .logo {
+            font-size: 2rem;
+            font-weight: bold;
+            letter-spacing: 0.5rem;
+            text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+        }
+
+        .status-bar {
+            display: flex;
+            gap: 30px;
+        }
+
+        .status-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #00ff88;
+            box-shadow: 0 0 10px #00ff88;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .panel {
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            background: rgba(0, 20, 40, 0.6);
+            padding: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .panel::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00d4ff, transparent);
+            animation: scan 3s infinite;
+        }
+
+        @keyframes scan {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(100%); }
+        }
+
+        .panel-title {
+            font-size: 0.8rem;
+            color: #00d4ff;
+            text-transform: uppercase;
+            letter-spacing: 0.2rem;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+        }
+
+        .left-panel { grid-row: 2 / 3; }
+
+        .system-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+        }
+
+        .system-label { color: #888; }
+        .system-value { color: #00ff88; }
+
+        .viewport {
+            grid-row: 2 / 3;
+            position: relative;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        .viewport-overlay {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            pointer-events: none;
+            font-size: 0.8rem;
+            color: #888;
+        }
+
+        .viewport-corner {
+            position: absolute;
+            width: 30px;
+            height: 30px;
+            border-color: #00d4ff;
+            border-style: solid;
+            border-width: 0;
+        }
+
+        .corner-tl { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; }
+        .corner-tr { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; }
+        .corner-bl { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; }
+        .corner-br { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; }
+
+        .right-panel { grid-row: 2 / 3; }
+
+        .control-btn {
+            width: 100%;
+            padding: 12px;
+            margin-bottom: 10px;
+            background: transparent;
+            border: 1px solid rgba(0, 212, 255, 0.5);
+            color: #00d4ff;
+            font-family: inherit;
+            font-size: 0.9rem;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.1rem;
+            transition: all 0.3s;
+        }
+
+        .control-btn:hover {
+            background: rgba(0, 212, 255, 0.2);
+            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+        }
+
+        .control-btn.primary {
+            background: rgba(0, 212, 255, 0.3);
+            border-color: #00d4ff;
+        }
+
+        .control-btn.danger {
+            border-color: #ff4444;
+            color: #ff4444;
+        }
+
+        .control-btn.danger:hover {
+            background: rgba(255, 68, 68, 0.2);
+        }
+
+        .console-panel { grid-column: 1 / -1; }
+
+        .console-output {
+            height: 80px;
+            overflow-y: auto;
+            font-size: 0.85rem;
+            line-height: 1.5;
+            color: #00ff88;
+            background: rgba(0, 0, 0, 0.3);
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+
+        .console-line { margin-bottom: 2px; }
+        .console-line.info { color: #00d4ff; }
+        .console-line.success { color: #00ff88; }
+        .console-line.warning { color: #ffaa00; }
+        .console-line.error { color: #ff4444; }
+
+        .console-input-wrapper {
+            display: flex;
+            gap: 10px;
+        }
+
+        .console-input {
+            flex: 1;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            padding: 10px 15px;
+            color: #00d4ff;
+            font-family: inherit;
+            font-size: 0.9rem;
+        }
+
+        .console-input:focus {
+            outline: none;
+            border-color: #00d4ff;
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+        }
+
+        .console-submit {
+            padding: 10px 20px;
+            background: rgba(0, 212, 255, 0.3);
+            border: 1px solid #00d4ff;
+            color: #00d4ff;
+            cursor: pointer;
+            font-family: inherit;
+        }
+
+        .progress-container { margin: 15px 0; }
+
+        .progress-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.8rem;
+        }
+
+        .progress-bar {
+            height: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #00d4ff, #00ff88);
+            width: 0%;
+            transition: width 0.3s;
+        }
+
+        .material-slot {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            margin-bottom: 5px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+
+        .material-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .material-info { flex: 1; font-size: 0.8rem; }
+
+        .material-level {
+            width: 50px;
+            height: 6px;
+            background: rgba(0, 0, 0, 0.3);
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .material-level-fill {
+            height: 100%;
+            background: #00ff88;
+        }
+
+        .scanning-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00d4ff, transparent);
+            animation: scanline 2s linear infinite;
+        }
+
+        @keyframes scanline {
+            0% { top: 0; opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="header">
+            <div class="logo">JARVIS</div>
+            <div class="status-bar">
+                <div class="status-item">
+                    <div class="status-dot"></div>
+                    <span>SYSTEMS ONLINE</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-dot"></div>
+                    <span>PRINTER READY</span>
+                </div>
+                <div class="status-item">
+                    <div class="status-dot"></div>
+                    <span>LASER STANDBY</span>
+                </div>
+                <div class="status-item" id="clock">--:--:--</div>
+            </div>
+        </header>
+
+        <div class="panel left-panel">
+            <div class="panel-title">System Status</div>
+            <div class="system-item">
+                <span class="system-label">Bed Temp</span>
+                <span class="system-value" id="bed-temp">25.0°C</span>
+            </div>
+            <div class="system-item">
+                <span class="system-label">Nozzle Temp</span>
+                <span class="system-value" id="nozzle-temp">25.0°C</span>
+            </div>
+            <div class="system-item">
+                <span class="system-label">Chamber</span>
+                <span class="system-value">28.0°C</span>
+            </div>
+            <div class="system-item">
+                <span class="system-label">Print Speed</span>
+                <span class="system-value">100%</span>
+            </div>
+
+            <div class="panel-title" style="margin-top: 20px;">Material Bay</div>
+            <div class="material-slot">
+                <div class="material-color" style="background: #ffffff;"></div>
+                <div class="material-info">PLA White</div>
+                <div class="material-level"><div class="material-level-fill" style="width: 80%;"></div></div>
+            </div>
+            <div class="material-slot">
+                <div class="material-color" style="background: #ff4444;"></div>
+                <div class="material-info">PLA Red</div>
+                <div class="material-level"><div class="material-level-fill" style="width: 65%;"></div></div>
+            </div>
+            <div class="material-slot">
+                <div class="material-color" style="background: #4444ff;"></div>
+                <div class="material-info">PLA Blue</div>
+                <div class="material-level"><div class="material-level-fill" style="width: 90%;"></div></div>
+            </div>
+            <div class="material-slot">
+                <div class="material-color" style="background: #44ff44;"></div>
+                <div class="material-info">PLA Green</div>
+                <div class="material-level"><div class="material-level-fill" style="width: 45%;"></div></div>
+            </div>
+        </div>
+
+        <div class="panel viewport">
+            <div class="viewport-corner corner-tl"></div>
+            <div class="viewport-corner corner-tr"></div>
+            <div class="viewport-corner corner-bl"></div>
+            <div class="viewport-corner corner-br"></div>
+            <div class="scanning-line"></div>
+            <div id="canvas-container"></div>
+            <div class="viewport-overlay">
+                <div>VERTICES: <span style="color: #00d4ff;">847,293</span></div>
+                <div>FACES: <span style="color: #00d4ff;">1,694,582</span></div>
+                <div>VOLUME: <span style="color: #00d4ff;">42.7 cm³</span></div>
+            </div>
+        </div>
+
+        <div class="panel right-panel">
+            <div class="panel-title">Controls</div>
+            <button class="control-btn primary" onclick="startScan()">Scan Object</button>
+            <button class="control-btn" onclick="analyzeModel()">Analyze Mesh</button>
+            <button class="control-btn" onclick="repairModel()">Auto Repair</button>
+            <button class="control-btn" onclick="hollowModel()">Hollow Shell</button>
+
+            <div class="panel-title" style="margin-top: 20px;">Fabrication</div>
+            <button class="control-btn primary" onclick="startPrint()">Start Print</button>
+            <button class="control-btn" onclick="startLaser()">Laser Cut</button>
+            <button class="control-btn danger" onclick="emergencyStop()">Emergency Stop</button>
+
+            <div class="progress-container" id="progress-container" style="display: none;">
+                <div class="progress-label">
+                    <span id="progress-label">Processing...</span>
+                    <span id="progress-percent">0%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="progress-fill"></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="panel console-panel">
+            <div class="panel-title">Command Console</div>
+            <div class="console-output" id="console-output"></div>
+            <div class="console-input-wrapper">
+                <input type="text" class="console-input" id="console-input"
+                       placeholder="Enter command (scan, print, analyze, status)..."
+                       onkeypress="handleInput(event)">
+                <button class="console-submit" onclick="submitCommand()">EXECUTE</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        let scene, camera, renderer, controls, model;
+
+        function initThreeJS() {
+            const container = document.getElementById('canvas-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a0f);
+
+            camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+            camera.position.set(5, 5, 5);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.autoRotate = true;
+            controls.autoRotateSpeed = 1;
+
+            const gridHelper = new THREE.GridHelper(10, 20, 0x00d4ff, 0x003344);
+            scene.add(gridHelper);
+
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+            scene.add(ambientLight);
+
+            const directionalLight = new THREE.DirectionalLight(0x00d4ff, 0.8);
+            directionalLight.position.set(5, 10, 7);
+            scene.add(directionalLight);
+
+            createPhoneCase();
+            animate();
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function createPhoneCase() {
+            if (model) scene.remove(model);
+
+            const shape = new THREE.Shape();
+            const w = 1.5, h = 3, r = 0.2;
+            shape.moveTo(-w/2 + r, -h/2);
+            shape.lineTo(w/2 - r, -h/2);
+            shape.quadraticCurveTo(w/2, -h/2, w/2, -h/2 + r);
+            shape.lineTo(w/2, h/2 - r);
+            shape.quadraticCurveTo(w/2, h/2, w/2 - r, h/2);
+            shape.lineTo(-w/2 + r, h/2);
+            shape.quadraticCurveTo(-w/2, h/2, -w/2, h/2 - r);
+            shape.lineTo(-w/2, -h/2 + r);
+            shape.quadraticCurveTo(-w/2, -h/2, -w/2 + r, -h/2);
+
+            const geometry = new THREE.ExtrudeGeometry(shape, {
+                steps: 1, depth: 0.2, bevelEnabled: true,
+                bevelThickness: 0.05, bevelSize: 0.05, bevelSegments: 3
+            });
+
+            const material = new THREE.MeshPhongMaterial({
+                color: 0x00d4ff, transparent: true, opacity: 0.8, side: THREE.DoubleSide
+            });
+
+            model = new THREE.Mesh(geometry, material);
+            model.rotation.x = Math.PI / 2;
+            model.position.y = 1.5;
+            scene.add(model);
+
+            const wireframeMaterial = new THREE.MeshBasicMaterial({
+                color: 0x00ff88, wireframe: true, transparent: true, opacity: 0.3
+            });
+            const wireframe = new THREE.Mesh(geometry.clone(), wireframeMaterial);
+            wireframe.rotation.x = Math.PI / 2;
+            wireframe.position.y = 1.5;
+            scene.add(wireframe);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+
+        function log(message, type) {
+            const output = document.getElementById('console-output');
+            const line = document.createElement('div');
+            line.className = 'console-line ' + (type || 'info');
+            line.textContent = '> ' + message;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function handleInput(event) {
+            if (event.key === 'Enter') submitCommand();
+        }
+
+        function submitCommand() {
+            const input = document.getElementById('console-input');
+            const command = input.value.trim().toLowerCase();
+            input.value = '';
+            if (!command) return;
+
+            log('Command: ' + command, 'info');
+            if (command.includes('scan')) startScan();
+            else if (command.includes('print')) startPrint();
+            else if (command.includes('analyze')) analyzeModel();
+            else if (command.includes('repair')) repairModel();
+            else if (command.includes('status')) showStatus();
+            else if (command.includes('stop')) emergencyStop();
+            else log('Unknown command. Try: scan, print, analyze, repair, status', 'warning');
+        }
+
+        function startScan() {
+            log('Initializing LiDAR scanner...', 'info');
+            showProgress('Scanning', 3000);
+            setTimeout(function() { log('Scan complete! 847,293 vertices captured.', 'success'); }, 3000);
+        }
+
+        function analyzeModel() {
+            log('Analyzing mesh topology...', 'info');
+            showProgress('Analyzing', 2000);
+            setTimeout(function() { log('Mesh is watertight and printable.', 'success'); }, 2000);
+        }
+
+        function repairModel() {
+            log('Running auto-repair algorithm...', 'info');
+            showProgress('Repairing', 2500);
+            setTimeout(function() { log('Repaired 3 holes and 12 non-manifold edges.', 'success'); }, 2500);
+        }
+
+        function hollowModel() {
+            log('Creating hollow shell (2mm walls)...', 'info');
+            showProgress('Hollowing', 2000);
+            setTimeout(function() { log('Hollowing complete. Material savings: 68%', 'success'); }, 2000);
+        }
+
+        function startPrint() {
+            log('Initiating print sequence...', 'info');
+            log('Heating bed to 60C...', 'info');
+
+            var bedTemp = 25;
+            var bedInterval = setInterval(function() {
+                bedTemp += 5;
+                document.getElementById('bed-temp').textContent = bedTemp + '°C';
+                if (bedTemp >= 60) {
+                    clearInterval(bedInterval);
+                    log('Bed temperature reached.', 'success');
+
+                    var nozzleTemp = 25;
+                    var nozzleInterval = setInterval(function() {
+                        nozzleTemp += 15;
+                        document.getElementById('nozzle-temp').textContent = nozzleTemp + '°C';
+                        if (nozzleTemp >= 210) {
+                            clearInterval(nozzleInterval);
+                            log('Nozzle temperature reached.', 'success');
+                            log('Beginning fabrication...', 'info');
+                            showProgress('Printing', 10000);
+                        }
+                    }, 200);
+                }
+            }, 200);
+        }
+
+        function startLaser() {
+            log('Preparing laser cutter...', 'info');
+            log('WARNING: Ensure safety enclosure is closed!', 'warning');
+            showProgress('Laser Cutting', 5000);
+            setTimeout(function() { log('Laser cutting complete.', 'success'); }, 5000);
+        }
+
+        function emergencyStop() {
+            log('EMERGENCY STOP ACTIVATED', 'error');
+            document.getElementById('progress-container').style.display = 'none';
+            log('All operations halted. Systems safe.', 'warning');
+        }
+
+        function showStatus() {
+            log('=== SYSTEM STATUS ===', 'info');
+            log('Printer: IDLE', 'success');
+            log('Laser: STANDBY', 'success');
+            log('Material Bay: 4/4 slots loaded', 'success');
+        }
+
+        function showProgress(label, duration) {
+            var container = document.getElementById('progress-container');
+            var labelEl = document.getElementById('progress-label');
+            var percentEl = document.getElementById('progress-percent');
+            var fillEl = document.getElementById('progress-fill');
+
+            container.style.display = 'block';
+            labelEl.textContent = label + '...';
+
+            var progress = 0;
+            var interval = setInterval(function() {
+                progress += 2;
+                if (progress > 100) {
+                    progress = 100;
+                    clearInterval(interval);
+                    setTimeout(function() { container.style.display = 'none'; }, 500);
+                }
+                percentEl.textContent = progress + '%';
+                fillEl.style.width = progress + '%';
+            }, duration / 50);
+        }
+
+        function updateClock() {
+            var now = new Date();
+            document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', { hour12: false });
+        }
+        setInterval(updateClock, 1000);
+        updateClock();
+
+        window.onload = function() {
+            initThreeJS();
+            log('JARVIS Fabrication System initialized', 'info');
+            log('All systems nominal', 'success');
+            log('Ready for command...', 'info');
+        };
+    </script>
+</body>
+</html>
