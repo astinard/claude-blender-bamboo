@@ -135,6 +135,59 @@ def execute_command(cmd: dict) -> dict:
                     }
                 }
 
+        elif action in ('add', 'import', 'add_object'):
+            # Import additional object WITHOUT clearing scene
+            filepath = params.get('file', '')
+            if not filepath or not os.path.exists(filepath):
+                return {"success": False, "message": f"File not found: {filepath}"}
+
+            ext = Path(filepath).suffix.lower()
+            if ext == '.stl':
+                bpy.ops.wm.stl_import(filepath=filepath)
+            elif ext == '.obj':
+                bpy.ops.wm.obj_import(filepath=filepath)
+            elif ext == '.ply':
+                bpy.ops.wm.ply_import(filepath=filepath)
+            else:
+                return {"success": False, "message": f"Unsupported format: {ext}"}
+
+            new_obj = bpy.context.active_object
+            if new_obj:
+                new_obj.name = Path(filepath).stem
+                dims = new_obj.dimensions
+                result["message"] = f"Added: {Path(filepath).name} (not replacing existing)"
+                result["data"] = {
+                    "name": new_obj.name,
+                    "dimensions": {
+                        "width": round(dims.x, 1),
+                        "depth": round(dims.y, 1),
+                        "height": round(dims.z, 1)
+                    }
+                }
+
+        elif action in ('combine', 'join', 'merge'):
+            # Join all mesh objects into one
+            mesh_objects = [o for o in bpy.context.scene.objects if o.type == 'MESH']
+            if len(mesh_objects) < 2:
+                return {"success": False, "message": "Need at least 2 objects to combine"}
+
+            bpy.ops.object.select_all(action='DESELECT')
+            for o in mesh_objects:
+                o.select_set(True)
+            bpy.context.view_layer.objects.active = mesh_objects[0]
+            bpy.ops.object.join()
+
+            combined = bpy.context.active_object
+            combined.name = "Combined"
+            bpy.ops.object.origin_set(type='ORIGIN_GEOMETRY', center='BOUNDS')
+            dims = combined.dimensions
+            result["message"] = f"Combined {len(mesh_objects)} objects into one"
+            result["data"]["dimensions"] = {
+                "width": round(dims.x, 1),
+                "depth": round(dims.y, 1),
+                "height": round(dims.z, 1)
+            }
+
         elif action in ('scale', 'resize'):
             # Scale the object
             factor = params.get('factor', 1.0)
@@ -388,10 +441,87 @@ def execute_command(cmd: dict) -> dict:
                             break
             result["message"] = "Fitted view to object"
 
+        elif action in ('add_spikes', 'spikes', 'horns'):
+            # Add spikes/horns to the top of the object
+            count = int(params.get('count', 5))
+            height_factor = float(params.get('height_factor', 0.15))
+
+            dims = obj.dimensions
+            top_z = obj.location.z + dims.z
+            center_x = obj.location.x
+            center_y = obj.location.y
+            spike_height = dims.z * height_factor
+
+            # Spike configurations: (x, y, height_mult, tilt_degrees)
+            if count >= 5:
+                configs = [
+                    (center_x - dims.x * 0.3, center_y, 1.2, 15),
+                    (center_x + dims.x * 0.3, center_y, 1.2, -15),
+                    (center_x, center_y, 1.5, 0),
+                    (center_x - dims.x * 0.15, center_y, 0.8, 8),
+                    (center_x + dims.x * 0.15, center_y, 0.8, -8),
+                ]
+            elif count >= 3:
+                configs = [
+                    (center_x - dims.x * 0.25, center_y, 1.0, 12),
+                    (center_x + dims.x * 0.25, center_y, 1.0, -12),
+                    (center_x, center_y, 1.3, 0),
+                ]
+            else:
+                configs = [
+                    (center_x - dims.x * 0.2, center_y, 1.0, 10),
+                    (center_x + dims.x * 0.2, center_y, 1.0, -10),
+                ]
+
+            spikes = []
+            for i, (x, y, h_mult, tilt) in enumerate(configs[:count]):
+                h = spike_height * h_mult
+                r = dims.x * 0.08
+                bpy.ops.mesh.primitive_cone_add(
+                    radius1=r, radius2=0, depth=h,
+                    location=(x, y, top_z + h/2)
+                )
+                spike = bpy.context.active_object
+                spike.name = f'Spike_{i}'
+                spike.rotation_euler.y = math.radians(tilt)
+                spikes.append(spike)
+
+            # Join all with main object
+            bpy.ops.object.select_all(action='DESELECT')
+            for spike in spikes:
+                spike.select_set(True)
+            obj.select_set(True)
+            bpy.context.view_layer.objects.active = obj
+            bpy.ops.object.join()
+
+            dims = obj.dimensions
+            result["message"] = f"Added {len(spikes)} spikes/horns to the top!"
+            result["data"]["dimensions"] = {
+                "width": round(dims.x, 1),
+                "depth": round(dims.y, 1),
+                "height": round(dims.z, 1)
+            }
+
+        elif action == 'execute_script':
+            # Execute custom Python script in Blender
+            script = params.get('script', '')
+            if script:
+                try:
+                    exec(script)
+                    result["message"] = "Script executed successfully"
+                except Exception as e:
+                    result["success"] = False
+                    result["message"] = f"Script error: {str(e)}"
+            else:
+                result["success"] = False
+                result["message"] = "No script provided"
+
         elif action == 'help':
             result["message"] = "Available commands"
             result["data"]["commands"] = [
-                "load <file> - Load a scan file",
+                "load <file> - Load a scan file (replaces current)",
+                "add <file> - Add another object (keeps current)",
+                "combine - Join all objects into one",
                 "status - Show current dimensions",
                 "height <value> - Set height (e.g., '2 inches', '50mm')",
                 "width <value> - Set width",

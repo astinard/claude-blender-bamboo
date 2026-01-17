@@ -94,8 +94,17 @@ def interpret_command(text: str) -> Optional[Dict[str, Any]]:
     """
     text = text.lower().strip()
 
-    # Load/Open commands
-    load_match = re.search(r'(?:load|open|import)\s+(?:the\s+)?(?:file\s+)?["\']?([^"\']+)["\']?', text)
+    # Add (import without replacing) commands
+    add_match = re.search(r'(?:add|bring in|import additional)\s+(?:the\s+)?(?:file\s+)?["\']?([^"\']+)["\']?', text)
+    if add_match and 'spike' not in text and 'horn' not in text:
+        return {"action": "add", "params": {"file": add_match.group(1).strip()}}
+
+    # Combine/Join commands
+    if any(word in text for word in ['combine', 'join', 'merge all', 'join all']):
+        return {"action": "combine", "params": {}}
+
+    # Load/Open commands (replaces current)
+    load_match = re.search(r'(?:load|open|replace with)\s+(?:the\s+)?(?:file\s+)?["\']?([^"\']+)["\']?', text)
     if load_match:
         return {"action": "load", "params": {"file": load_match.group(1).strip()}}
 
@@ -187,6 +196,13 @@ def interpret_command(text: str) -> Optional[Dict[str, Any]]:
             value = 1
         value_mm = to_mm(value, unit)
         return {"action": "bevel", "params": {"amount": value_mm}}
+
+    # Spike/horn commands
+    if any(word in text for word in ['spike', 'spikes', 'horn', 'horns']):
+        # Look for count
+        count_match = re.search(r'(\d+)\s*(?:spike|horn)', text)
+        count = int(count_match.group(1)) if count_match else 5
+        return {"action": "add_spikes", "params": {"count": count}}
 
     # Export/Save commands
     export_match = re.search(r'(?:export|save)\s+(?:to\s+|as\s+)?["\']?([^"\']+)["\']?', text)
