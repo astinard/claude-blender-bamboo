@@ -225,7 +225,7 @@ User Voice/Text
 | ID | Feature | Description | Status |
 |----|---------|-------------|--------|
 | P3.1 | Photogrammetry | Photos → 3D via Meshroom | 📋 Planned |
-| P3.2 | Auto Mesh Repair | Fix holes, noise, non-manifold | 📋 Planned |
+| P3.2 | Auto Mesh Repair | Fix holes, noise, non-manifold | ✅ Done |
 | P3.3 | Texture Capture | Scan with color/texture | 📋 Planned |
 | P3.4 | Parametric Edits | "Make all holes 2mm bigger" | 📋 Planned |
 | P3.5 | Design Suggestions | "This overhang may fail" warnings | 📋 Planned |

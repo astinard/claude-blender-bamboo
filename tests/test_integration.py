@@ -283,6 +283,54 @@ def test_command_interpreter():
     return True
 
 
+def test_mesh_repair():
+    """Test mesh repair analysis."""
+    print("Testing: Mesh Repair Analysis")
+
+    from blender.mesh_repair import (
+        MeshAnalyzer, MeshAnalysis, MeshIssueType, RepairSeverity,
+        analyze_mesh, format_analysis
+    )
+
+    # Create a mesh with issues (cube missing one face = hole)
+    vertices = [
+        (0, 0, 0), (10, 0, 0), (10, 10, 0), (0, 10, 0),  # bottom
+        (0, 0, 10), (10, 0, 10), (10, 10, 10), (0, 10, 10),  # top
+    ]
+    # Missing front face creates a hole
+    faces = [
+        (0, 1, 2), (0, 2, 3),  # bottom
+        (4, 6, 5), (4, 7, 6),  # top
+        (0, 4, 5), (0, 5, 1),  # front
+        (2, 6, 7), (2, 7, 3),  # back
+        (0, 3, 7), (0, 7, 4),  # left
+        # right face missing - creates hole
+    ]
+
+    # Analyze mesh
+    analyzer = MeshAnalyzer()
+    analysis = analyzer.analyze_mesh_data(vertices, faces)
+
+    assert analysis is not None, "Analysis should be returned"
+    assert not analysis.is_watertight, "Mesh with missing face should not be watertight"
+
+    # Check issue detection
+    hole_issues = [i for i in analysis.issues if i.issue_type == MeshIssueType.HOLE]
+    assert len(hole_issues) >= 1, "Should detect hole from missing face"
+
+    # Test convenience function
+    analysis2 = analyze_mesh(vertices, faces)
+    assert analysis2 is not None, "Convenience function should work"
+
+    # Test formatting
+    formatted = format_analysis(analysis)
+    assert "watertight" in formatted.lower() or "hole" in formatted.lower(), "Format should include status"
+
+    print(f"  Found {len(analysis.issues)} issues in test mesh")
+    print("  ✓ All mesh repair tests passed")
+    return True
+
+
 def test_latency_requirements():
     """Test that operations meet latency requirements (<5ms)."""
     print("Testing: Latency Requirements")
@@ -337,6 +385,7 @@ def run_all_tests():
         test_mock_printer_simulation,
         test_3mf_export_functions,
         test_command_interpreter,
+        test_mesh_repair,
         test_latency_requirements,
     ]
 
