@@ -1,8 +1,16 @@
 # Claude Code Fab Lab - Product Requirements Document
 
-**Version:** 1.0
+**Version:** 1.1
 **Date:** January 2026
-**Status:** Planning Phase
+**Status:** P0-P2 Implementation Complete
+
+### Implementation Progress
+| Priority | Features | Completed | Status |
+|----------|----------|-----------|--------|
+| **P0** | Core Foundation | 8/8 | ✅ 100% |
+| **P1** | Multi-Color & Materials | 6/7 | ✅ 86% |
+| **P2** | Laser Cutting | 7/8 | ✅ 88% |
+| **P3** | Advanced Features | 0/10 | 📋 0% |
 
 ---
 
@@ -181,20 +189,20 @@ User Voice/Text
 | P0.4 | Iterative Design | Modify same object without reloading | ✅ Done |
 | P0.5 | STL Export | Export for single-color printing | ✅ Done |
 | P0.6 | Mock Printer | Test workflow without hardware | ✅ Done |
-| P0.7 | Real Printer Connection | MQTT/FTP to Bambu Lab printer | 🔨 To Build |
-| P0.8 | Basic Print Job | Upload and start single-color print | 🔨 To Build |
+| P0.7 | Real Printer Connection | MQTT/FTP to Bambu Lab printer | ✅ Done |
+| P0.8 | Basic Print Job | Upload and start single-color print | ✅ Done |
 
 ### P1: Multi-Color & Materials (Should Have)
 **Goal:** Full color and material control
 
 | ID | Feature | Description | Status |
 |----|---------|-------------|--------|
-| P1.1 | Material Library | PLA, PETG, TPU, ABS properties | 🔨 To Build |
-| P1.2 | Color Assignment | "Paint the top red" → vertex colors | 🔨 To Build |
-| P1.3 | Material Assignment | "Make the grip rubber" → material per region | 🔨 To Build |
-| P1.4 | Region Selection | "Select the handle" → geometry picking | 🔨 To Build |
-| P1.5 | 3MF Export | Multi-color/material export | 🔨 To Build |
-| P1.6 | AMS Integration | Map colors to filament slots | 🔨 To Build |
+| P1.1 | Material Library | PLA, PETG, TPU, ABS properties | ✅ Done |
+| P1.2 | Color Assignment | "Paint the top red" → vertex colors | ✅ Done |
+| P1.3 | Material Assignment | "Make the grip rubber" → material per region | ✅ Done |
+| P1.4 | Region Selection | "Select the handle" → geometry picking | ✅ Done |
+| P1.5 | 3MF Export | Multi-color/material export | ✅ Done |
+| P1.6 | AMS Integration | Map colors to filament slots | ✅ Done |
 | P1.7 | Print Preview | Show AMS mapping before print | 🔨 To Build |
 
 ### P2: Laser Cutting (Nice to Have)
@@ -202,13 +210,13 @@ User Voice/Text
 
 | ID | Feature | Description | Status |
 |----|---------|-------------|--------|
-| P2.1 | Cross-Section Tool | Slice 3D model at any Z height | 🔨 To Build |
-| P2.2 | 2D Projection | Top/front/side view to 2D | 🔨 To Build |
-| P2.3 | SVG Export | Vector paths for laser | 🔨 To Build |
-| P2.4 | DXF Export | AutoCAD-compatible paths | 🔨 To Build |
-| P2.5 | Material Presets | Wood, acrylic, leather power/speed | 🔨 To Build |
-| P2.6 | Laser Job Control | Send to H2D laser module | 🔨 To Build |
-| P2.7 | Engrave vs Cut | Differentiate operations | 🔨 To Build |
+| P2.1 | Cross-Section Tool | Slice 3D model at any Z height | ✅ Done |
+| P2.2 | 2D Projection | Top/front/side view to 2D | ✅ Done |
+| P2.3 | SVG Export | Vector paths for laser | ✅ Done |
+| P2.4 | DXF Export | AutoCAD-compatible paths | ✅ Done |
+| P2.5 | Material Presets | Wood, acrylic, leather power/speed | ✅ Done |
+| P2.6 | Laser Job Control | Send to H2D laser module | ✅ Done |
+| P2.7 | Engrave vs Cut | Differentiate operations | ✅ Done |
 | P2.8 | Path Optimization | Minimize travel, reduce time | 🔨 To Build |
 
 ### P3: Advanced Features (Future)
