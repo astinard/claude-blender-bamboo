@@ -629,9 +629,34 @@ def execute_command(cmd: dict) -> dict:
                 bpy.ops.wm.stl_export(filepath=filepath, export_selected_objects=True)
             elif ext == '.obj':
                 bpy.ops.wm.obj_export(filepath=filepath, export_selected_objects=True)
+            elif ext == '.3mf':
+                # Use our custom 3MF exporter for multi-color
+                from . import export_3mf
+                ams_mapping = params.get('ams_mapping', None)
+                export_result = export_3mf.export_3mf_command(filepath, ams_mapping)
+                if export_result["success"]:
+                    result["message"] = export_result["message"]
+                    result["data"] = export_result.get("data", {})
+                else:
+                    return export_result
 
             result["message"] = f"Exported to {filepath}"
             result["data"]["filepath"] = filepath
+
+        elif action in ('export_3mf', 'export_multicolor', 'export_multi_color'):
+            # Dedicated 3MF export with multi-color support
+            filepath = params.get('file', 'output/model.3mf')
+            filepath = str(Path(filepath).resolve())
+
+            Path(filepath).parent.mkdir(parents=True, exist_ok=True)
+
+            from . import export_3mf
+            ams_mapping = params.get('ams_mapping', None)
+            export_result = export_3mf.export_3mf_command(filepath, ams_mapping)
+
+            result["success"] = export_result["success"]
+            result["message"] = export_result["message"]
+            result["data"] = export_result.get("data", {})
 
         elif action in ('view', 'camera', 'look'):
             view = params.get('direction', 'front').lower()
@@ -854,6 +879,7 @@ def execute_command(cmd: dict) -> dict:
                 "set_material <material> [region] - Assign material (pla, tpu, etc.)",
                 "list_colors - Show available color names",
                 "list_regions - Show available regions (top, bottom, etc.)",
+                "export_3mf <file> - Export as 3MF with multi-color (for Bambu)",
                 "--- Regions: all, top, bottom, front, back, left, right, sides ---",
             ]
 

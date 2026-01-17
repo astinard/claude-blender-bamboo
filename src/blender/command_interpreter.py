@@ -274,6 +274,15 @@ def interpret_command(text: str) -> Optional[Dict[str, Any]]:
     if any(phrase in text for phrase in ['list region', 'show region', 'available region', 'what region']):
         return {"action": "list_regions", "params": {}}
 
+    # 3MF Export commands - "export as 3mf", "export multicolor", "save for bambu"
+    if any(phrase in text for phrase in ['3mf', 'multicolor', 'multi-color', 'multi color', 'bambu', 'bamboo', 'bambu studio']):
+        export_match = re.search(r'(?:export|save)\s+(?:to\s+|as\s+)?["\']?([^"\']+\.3mf)["\']?', text)
+        if export_match:
+            filepath = export_match.group(1).strip()
+        else:
+            filepath = 'output/model.3mf'
+        return {"action": "export_3mf", "params": {"file": filepath}}
+
     # Export/Save commands
     export_match = re.search(r'(?:export|save)\s+(?:to\s+|as\s+)?["\']?([^"\']+)["\']?', text)
     if export_match:

@@ -11,6 +11,12 @@ from .bambu_real import (
     PrintStage,
     create_real_printer,
 )
+from .ams_manager import (
+    AMSManager,
+    AMSSlot,
+    FilamentInfo,
+    create_ams_manager_with_defaults,
+)
 
 __all__ = [
     # Connection
@@ -36,4 +42,9 @@ __all__ = [
     "AMSStatus",
     "PrintStage",
     "create_real_printer",
+    # AMS Manager
+    "AMSManager",
+    "AMSSlot",
+    "FilamentInfo",
+    "create_ams_manager_with_defaults",
 ]
