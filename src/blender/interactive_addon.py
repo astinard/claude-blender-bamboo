@@ -9,6 +9,7 @@ Or run Blender with: blender --python src/blender/interactive_addon.py
 """
 
 import bpy
+import bmesh
 import json
 import os
 import threading
@@ -16,10 +17,57 @@ import time
 from pathlib import Path
 from mathutils import Vector, Euler
 import math
+from typing import Dict, List, Tuple, Optional
 
 # Command file for communication
 COMMAND_FILE = Path.home() / ".claude" / "blender_commands.json"
 RESPONSE_FILE = Path.home() / ".claude" / "blender_response.json"
+
+# Color name to RGBA mapping (sRGB, 0-1)
+COLOR_MAP: Dict[str, Tuple[float, float, float, float]] = {
+    # Primary colors
+    'red': (1.0, 0.0, 0.0, 1.0),
+    'green': (0.0, 0.8, 0.0, 1.0),
+    'blue': (0.0, 0.0, 1.0, 1.0),
+    'yellow': (1.0, 1.0, 0.0, 1.0),
+    'orange': (1.0, 0.5, 0.0, 1.0),
+    'purple': (0.5, 0.0, 1.0, 1.0),
+    'pink': (1.0, 0.4, 0.7, 1.0),
+    'cyan': (0.0, 1.0, 1.0, 1.0),
+    'magenta': (1.0, 0.0, 1.0, 1.0),
+    # Neutrals
+    'white': (1.0, 1.0, 1.0, 1.0),
+    'black': (0.0, 0.0, 0.0, 1.0),
+    'gray': (0.5, 0.5, 0.5, 1.0),
+    'grey': (0.5, 0.5, 0.5, 1.0),
+    'dark gray': (0.25, 0.25, 0.25, 1.0),
+    'light gray': (0.75, 0.75, 0.75, 1.0),
+    # Earth tones
+    'brown': (0.6, 0.3, 0.0, 1.0),
+    'tan': (0.82, 0.71, 0.55, 1.0),
+    'beige': (0.96, 0.96, 0.86, 1.0),
+    # Metallics
+    'gold': (1.0, 0.84, 0.0, 1.0),
+    'silver': (0.75, 0.75, 0.75, 1.0),
+    'copper': (0.72, 0.45, 0.2, 1.0),
+    'bronze': (0.8, 0.5, 0.2, 1.0),
+}
+
+# Region aliases for natural language
+REGION_ALIASES: Dict[str, str] = {
+    'upper': 'top',
+    'lower': 'bottom',
+    'base': 'bottom',
+    'head': 'top',
+    'front face': 'front',
+    'back face': 'back',
+    'rear': 'back',
+    'side': 'left',  # Default side
+    'sides': 'sides',
+    'everywhere': 'all',
+    'whole': 'all',
+    'entire': 'all',
+}
 
 # Ensure directory exists
 COMMAND_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -80,6 +128,186 @@ def parse_measurement(value_str: str) -> float:
         return value * 10
     else:  # mm
         return value
+
+
+def parse_color(color_str: str) -> Optional[Tuple[float, float, float, float]]:
+    """Parse color string to RGBA tuple."""
+    color_str = color_str.lower().strip()
+
+    # Direct name match
+    if color_str in COLOR_MAP:
+        return COLOR_MAP[color_str]
+
+    # Try hex color (#RRGGBB or #RGB)
+    if color_str.startswith('#'):
+        hex_str = color_str[1:]
+        if len(hex_str) == 3:
+            hex_str = ''.join(c * 2 for c in hex_str)
+        if len(hex_str) == 6:
+            r = int(hex_str[0:2], 16) / 255.0
+            g = int(hex_str[2:4], 16) / 255.0
+            b = int(hex_str[4:6], 16) / 255.0
+            return (r, g, b, 1.0)
+
+    # Try RGB tuple (r,g,b)
+    import re
+    rgb_match = re.match(r'(\d+)\s*,\s*(\d+)\s*,\s*(\d+)', color_str)
+    if rgb_match:
+        r = int(rgb_match.group(1)) / 255.0
+        g = int(rgb_match.group(2)) / 255.0
+        b = int(rgb_match.group(3)) / 255.0
+        return (min(r, 1.0), min(g, 1.0), min(b, 1.0), 1.0)
+
+    return None
+
+
+def parse_region(region_str: str) -> str:
+    """Parse region string to normalized form."""
+    region = region_str.lower().strip()
+    return REGION_ALIASES.get(region, region)
+
+
+def ensure_vertex_color_layer(obj) -> bpy.types.Attribute:
+    """Ensure object has a vertex color layer, create if needed."""
+    mesh = obj.data
+
+    # Check for existing color attribute
+    color_attr = mesh.color_attributes.get('Col')
+    if color_attr is None:
+        # Create new vertex color attribute (per-face-corner for best quality)
+        color_attr = mesh.color_attributes.new(
+            name='Col',
+            type='FLOAT_COLOR',
+            domain='CORNER'
+        )
+        # Initialize to white
+        for i in range(len(color_attr.data)):
+            color_attr.data[i].color = (1.0, 1.0, 1.0, 1.0)
+
+    # Set as active for rendering
+    mesh.color_attributes.active = color_attr
+    mesh.color_attributes.render_color_index = mesh.color_attributes.find('Col')
+
+    return color_attr
+
+
+def get_faces_in_region(obj, region: str) -> List[int]:
+    """
+    Get face indices in the specified region.
+
+    Regions:
+        - top: faces with normal pointing up (Z > 0.5)
+        - bottom: faces with normal pointing down (Z < -0.5)
+        - front: faces with normal pointing -Y
+        - back: faces with normal pointing +Y
+        - left: faces with normal pointing -X
+        - right: faces with normal pointing +X
+        - sides: all faces not top or bottom
+        - all: all faces
+    """
+    mesh = obj.data
+    world_matrix = obj.matrix_world
+    face_indices = []
+
+    # Calculate bounding box to determine position-based regions
+    verts_world = [world_matrix @ v.co for v in mesh.vertices]
+    min_z = min(v.z for v in verts_world)
+    max_z = max(v.z for v in verts_world)
+    mid_z = (min_z + max_z) / 2
+    height = max_z - min_z
+
+    for i, poly in enumerate(mesh.polygons):
+        # Transform normal to world space
+        normal = world_matrix.to_3x3() @ poly.normal
+        normal.normalize()
+
+        # Calculate face center in world space
+        center = world_matrix @ poly.center
+
+        if region == 'all':
+            face_indices.append(i)
+        elif region == 'top':
+            # Faces pointing up OR in the upper region
+            if normal.z > 0.5 or center.z > mid_z + height * 0.3:
+                face_indices.append(i)
+        elif region == 'bottom':
+            # Faces pointing down OR in the lower region
+            if normal.z < -0.5 or center.z < mid_z - height * 0.3:
+                face_indices.append(i)
+        elif region == 'front':
+            if normal.y < -0.5:
+                face_indices.append(i)
+        elif region == 'back':
+            if normal.y > 0.5:
+                face_indices.append(i)
+        elif region == 'left':
+            if normal.x < -0.5:
+                face_indices.append(i)
+        elif region == 'right':
+            if normal.x > 0.5:
+                face_indices.append(i)
+        elif region == 'sides':
+            # Not pointing primarily up or down
+            if abs(normal.z) < 0.5:
+                face_indices.append(i)
+
+    return face_indices
+
+
+def apply_color_to_faces(obj, face_indices: List[int], color: Tuple[float, float, float, float]):
+    """Apply color to specific faces using vertex colors."""
+    color_attr = ensure_vertex_color_layer(obj)
+    mesh = obj.data
+
+    # Vertex color data is per face corner (loop)
+    # We need to map face indices to loop indices
+    for face_idx in face_indices:
+        poly = mesh.polygons[face_idx]
+        for loop_idx in poly.loop_indices:
+            color_attr.data[loop_idx].color = color
+
+    # Update mesh
+    mesh.update()
+
+
+def setup_vertex_color_material(obj):
+    """Setup a material that displays vertex colors."""
+    # Check if object already has a vertex color material
+    for mat in obj.data.materials:
+        if mat and mat.name == 'VertexColorMaterial':
+            return mat
+
+    # Create new material
+    mat = bpy.data.materials.new(name='VertexColorMaterial')
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
+    links = mat.node_tree.links
+
+    # Clear default nodes
+    nodes.clear()
+
+    # Create nodes
+    output = nodes.new('ShaderNodeOutputMaterial')
+    output.location = (300, 0)
+
+    bsdf = nodes.new('ShaderNodeBsdfPrincipled')
+    bsdf.location = (0, 0)
+
+    vertex_color = nodes.new('ShaderNodeVertexColor')
+    vertex_color.location = (-300, 0)
+    vertex_color.layer_name = 'Col'
+
+    # Link nodes
+    links.new(vertex_color.outputs['Color'], bsdf.inputs['Base Color'])
+    links.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
+
+    # Assign to object
+    if len(obj.data.materials) == 0:
+        obj.data.materials.append(mat)
+    else:
+        obj.data.materials[0] = mat
+
+    return mat
 
 
 def execute_command(cmd: dict) -> dict:
@@ -502,6 +730,91 @@ def execute_command(cmd: dict) -> dict:
                 "height": round(dims.z, 1)
             }
 
+        elif action in ('set_color', 'color', 'paint', 'colorize'):
+            # Set vertex color on a region
+            color_str = params.get('color', params.get('value', 'red'))
+            region_str = params.get('region', params.get('area', 'all'))
+
+            color = parse_color(color_str)
+            if color is None:
+                return {"success": False, "message": f"Unknown color: {color_str}. Use names like red, blue, green or hex #RRGGBB"}
+
+            region = parse_region(region_str)
+            valid_regions = ['all', 'top', 'bottom', 'front', 'back', 'left', 'right', 'sides']
+            if region not in valid_regions:
+                return {"success": False, "message": f"Unknown region: {region_str}. Use: {', '.join(valid_regions)}"}
+
+            # Get faces in region
+            face_indices = get_faces_in_region(obj, region)
+            if not face_indices:
+                return {"success": False, "message": f"No faces found in region '{region}'"}
+
+            # Apply color
+            apply_color_to_faces(obj, face_indices, color)
+
+            # Setup material to show vertex colors
+            setup_vertex_color_material(obj)
+
+            # Switch to rendered view to see colors
+            for area in bpy.context.screen.areas:
+                if area.type == 'VIEW_3D':
+                    for space in area.spaces:
+                        if space.type == 'VIEW_3D':
+                            space.shading.type = 'MATERIAL'
+
+            result["message"] = f"Set {color_str} color on {region} ({len(face_indices)} faces)"
+            result["data"]["color"] = color_str
+            result["data"]["region"] = region
+            result["data"]["faces_colored"] = len(face_indices)
+
+        elif action in ('set_material', 'material', 'assign_material'):
+            # Assign a material type to a region (for multi-material printing)
+            material_name = params.get('material', params.get('value', 'pla'))
+            region_str = params.get('region', params.get('area', 'all'))
+
+            region = parse_region(region_str)
+
+            # Use predefined colors for materials
+            material_colors = {
+                'pla': (0.9, 0.9, 0.9, 1.0),  # White-ish
+                'petg': (0.7, 0.85, 1.0, 1.0),  # Light blue
+                'tpu': (0.3, 0.3, 0.3, 1.0),  # Dark gray
+                'abs': (0.8, 0.7, 0.5, 1.0),  # Beige
+                'pa': (0.5, 0.5, 0.6, 1.0),  # Gray-blue
+                'pc': (0.9, 0.95, 1.0, 1.0),  # Clear-ish
+            }
+
+            mat_lower = material_name.lower()
+            color = material_colors.get(mat_lower, (0.8, 0.8, 0.8, 1.0))
+
+            face_indices = get_faces_in_region(obj, region)
+            if not face_indices:
+                return {"success": False, "message": f"No faces found in region '{region}'"}
+
+            apply_color_to_faces(obj, face_indices, color)
+            setup_vertex_color_material(obj)
+
+            # Store material assignment as custom property
+            if 'material_regions' not in obj:
+                obj['material_regions'] = {}
+            obj['material_regions'][region] = material_name
+
+            result["message"] = f"Assigned {material_name.upper()} to {region} ({len(face_indices)} faces)"
+            result["data"]["material"] = material_name
+            result["data"]["region"] = region
+            result["data"]["faces_assigned"] = len(face_indices)
+
+        elif action in ('list_colors', 'colors', 'show_colors'):
+            # Show available colors
+            result["message"] = "Available colors"
+            result["data"]["colors"] = list(COLOR_MAP.keys())
+
+        elif action in ('list_regions', 'regions', 'show_regions'):
+            # Show available regions
+            result["message"] = "Available regions"
+            result["data"]["regions"] = ['all', 'top', 'bottom', 'front', 'back', 'left', 'right', 'sides']
+            result["data"]["aliases"] = REGION_ALIASES
+
         elif action == 'execute_script':
             # Execute custom Python script in Blender
             script = params.get('script', '')
@@ -536,6 +849,12 @@ def execute_command(cmd: dict) -> dict:
                 "export <file> - Save to file",
                 "view <direction> - Change view (front/back/left/right/top)",
                 "fit - Fit view to object",
+                "--- Multi-Color Commands ---",
+                "set_color <color> [region] - Set color (red, blue, #FF0000, etc.)",
+                "set_material <material> [region] - Assign material (pla, tpu, etc.)",
+                "list_colors - Show available color names",
+                "list_regions - Show available regions (top, bottom, etc.)",
+                "--- Regions: all, top, bottom, front, back, left, right, sides ---",
             ]
 
         else:

@@ -204,6 +204,76 @@ def interpret_command(text: str) -> Optional[Dict[str, Any]]:
         count = int(count_match.group(1)) if count_match else 5
         return {"action": "add_spikes", "params": {"count": count}}
 
+    # Color commands - "make the top red", "paint it blue", "color the bottom green"
+    color_names = ['red', 'green', 'blue', 'yellow', 'orange', 'purple', 'pink', 'cyan',
+                   'magenta', 'white', 'black', 'gray', 'grey', 'brown', 'tan', 'beige',
+                   'gold', 'silver', 'copper', 'bronze']
+    region_names = ['top', 'bottom', 'front', 'back', 'left', 'right', 'sides', 'all',
+                    'upper', 'lower', 'base', 'head', 'everywhere', 'whole', 'entire']
+
+    if any(word in text for word in ['color', 'paint', 'make', 'set']):
+        # Find color
+        found_color = None
+        for color in color_names:
+            if color in text:
+                found_color = color
+                break
+        # Also check for hex colors
+        hex_match = re.search(r'#[0-9a-fA-F]{3,6}', text)
+        if hex_match:
+            found_color = hex_match.group(0)
+
+        if found_color:
+            # Find region
+            found_region = 'all'  # Default
+            for region in region_names:
+                if region in text:
+                    found_region = region
+                    break
+
+            return {"action": "set_color", "params": {"color": found_color, "region": found_region}}
+
+    # Material assignment - "use TPU on the bottom", "make the base flexible"
+    material_names = ['pla', 'petg', 'tpu', 'abs', 'asa', 'pa', 'nylon', 'pc', 'polycarbonate']
+    material_aliases = {
+        'flexible': 'tpu', 'rubber': 'tpu', 'soft': 'tpu',
+        'strong': 'petg', 'durable': 'petg',
+        'tough': 'pa', 'industrial': 'pa',
+        'clear': 'pc', 'transparent': 'pc',
+        'heat resistant': 'abs', 'outdoor': 'asa',
+    }
+
+    if any(word in text for word in ['material', 'use', 'assign', 'filament']):
+        # Find material
+        found_material = None
+        for mat in material_names:
+            if mat in text:
+                found_material = mat
+                break
+        if not found_material:
+            for alias, mat in material_aliases.items():
+                if alias in text:
+                    found_material = mat
+                    break
+
+        if found_material:
+            # Find region
+            found_region = 'all'
+            for region in region_names:
+                if region in text:
+                    found_region = region
+                    break
+
+            return {"action": "set_material", "params": {"material": found_material, "region": found_region}}
+
+    # List colors command
+    if any(phrase in text for phrase in ['list color', 'show color', 'available color', 'what color']):
+        return {"action": "list_colors", "params": {}}
+
+    # List regions command
+    if any(phrase in text for phrase in ['list region', 'show region', 'available region', 'what region']):
+        return {"action": "list_regions", "params": {}}
+
     # Export/Save commands
     export_match = re.search(r'(?:export|save)\s+(?:to\s+|as\s+)?["\']?([^"\']+)["\']?', text)
     if export_match:
