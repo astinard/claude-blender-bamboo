@@ -14,6 +14,7 @@ from enum import Enum
 
 from .voice import JarvisVoice, VoiceConfig, SpeechRecognizer
 from .display import JarvisDisplay, JARVIS_PRIMARY, JARVIS_ACCENT, JARVIS_SUCCESS, Colors
+from .sounds import JarvisSounds, SoundConfig, SoundType
 
 
 class JarvisState(Enum):
@@ -56,8 +57,11 @@ class Jarvis:
         self,
         voice_enabled: bool = True,
         voice_config: Optional[VoiceConfig] = None,
+        sounds_enabled: bool = True,
+        sounds_config: Optional[SoundConfig] = None,
     ):
         self.voice = JarvisVoice(voice_config) if voice_enabled else None
+        self.sounds = JarvisSounds(sounds_config) if sounds_enabled else None
         self.display = JarvisDisplay()
         self.recognizer = SpeechRecognizer(wake_word="jarvis")
 
@@ -109,12 +113,21 @@ class Jarvis:
 
         try:
             if not skip_animation:
+                # Power up sound
+                if self.sounds:
+                    self.sounds.play(SoundType.POWER_UP, block=True)
+
                 # Startup animation
                 self.display.animated_text("Initializing JARVIS...", delay=0.02)
                 time.sleep(0.3)
 
             self.display.banner("jarvis")
-            time.sleep(0.3)
+
+            if not skip_animation:
+                # Boot sound sequence
+                if self.sounds:
+                    self.sounds.play(SoundType.BOOT, block=True)
+                time.sleep(0.3)
 
             if not skip_animation:
                 # System checks
@@ -124,6 +137,7 @@ class Jarvis:
                 checks = [
                     ("Core Systems", "Online"),
                     ("Voice Module", "Active" if self.voice else "Disabled"),
+                    ("Sound Engine", "Active" if self.sounds else "Disabled"),
                     ("Display Engine", "Active"),
                     ("Fabrication Link", "Standing By"),
                     ("Material Database", "Loaded"),
@@ -132,15 +146,25 @@ class Jarvis:
 
                 for label, value in checks:
                     time.sleep(0.15)
+                    if self.sounds:
+                        self.sounds.click()
                     self.display.status(label, value, "ok")
 
                 time.sleep(0.3)
+
+            # Ready sound
+            if self.sounds:
+                self.sounds.play(SoundType.READY, block=True)
 
             # Speak greeting
             if self.voice:
                 self.voice.speak_greeting()
 
             self.state = JarvisState.IDLE
+
+            # Start ambient sound
+            if self.sounds:
+                self.sounds.start_ambient()
 
             self.display.header("READY FOR COMMAND")
             self.display.info("Say 'Jarvis' followed by a command, or type below")
@@ -172,11 +196,15 @@ class Jarvis:
         for pattern, handler in self._commands.items():
             if re.search(pattern, text, re.IGNORECASE):
                 self.state = JarvisState.PROCESSING
+                if self.sounds:
+                    self.sounds.confirm()
                 if self.voice:
                     self.voice.speak_confirmation()
                 try:
                     handler(text)
                 except Exception as e:
+                    if self.sounds:
+                        self.sounds.error()
                     self.say(f"I encountered an error: {str(e)}")
                     self.state = JarvisState.ERROR
                     return False
@@ -184,6 +212,8 @@ class Jarvis:
                 return True
 
         # Unknown command
+        if self.sounds:
+            self.sounds.warning()
         self.say("I'm not sure what you mean. Say 'help' for available commands.")
         return False
 
@@ -238,13 +268,25 @@ class Jarvis:
         self.state = JarvisState.SCANNING
         self.display.header("INITIATING SCAN")
 
+        # Scan start sound
+        if self.sounds:
+            self.sounds.play(SoundType.SCAN_START)
+
         self.say("Preparing LiDAR scanner. Please position the object.")
         time.sleep(1)
 
         self.display.banner("scan")
         self.say("Scanning in progress. Hold steady.")
 
+        # Play scan loop sound during animation
+        if self.sounds:
+            self.sounds.play(SoundType.SCAN_LOOP)
+
         self.display.scanning_animation(duration=3.0)
+
+        # Scan complete sound
+        if self.sounds:
+            self.sounds.play(SoundType.SCAN_COMPLETE, block=True)
 
         self.say("Scan complete. Processing mesh data.")
 
@@ -257,11 +299,16 @@ class Jarvis:
             "Watertight": "Yes",
         }, title="SCAN RESULTS")
 
+        if self.sounds:
+            self.sounds.success()
         self.say("Object captured successfully. Mesh is clean and printable.")
 
     def _cmd_analyze(self, text: str):
         """Handle analyze command."""
         self.display.header("ANALYZING MESH")
+
+        if self.sounds:
+            self.sounds.processing()
 
         self.display.spinner_start("Running mesh analysis")
         time.sleep(2)
@@ -275,6 +322,8 @@ class Jarvis:
             "Printability": "Excellent",
         }, title="MESH ANALYSIS")
 
+        if self.sounds:
+            self.sounds.success()
         self.say("The mesh is in excellent condition. Ready for fabrication.")
 
     def _cmd_repair(self, text: str):
@@ -283,10 +332,15 @@ class Jarvis:
 
         self.say("Analyzing mesh for defects.")
 
+        if self.sounds:
+            self.sounds.processing()
+
         self.display.spinner_start("Scanning for issues")
         time.sleep(1.5)
         self.display.spinner_stop()
 
+        if self.sounds:
+            self.sounds.warning()
         self.display.status("Holes found", "3", "warning")
         self.display.status("Non-manifold edges", "12", "warning")
 
@@ -294,9 +348,13 @@ class Jarvis:
 
         for i in range(5):
             self.display.progress_bar((i + 1) / 5, label="Repairing")
+            if self.sounds:
+                self.sounds.click()
             time.sleep(0.3)
         print()
 
+        if self.sounds:
+            self.sounds.success()
         self.display.success("Mesh repaired successfully")
         self.say("All issues have been resolved. Mesh is now printable.")
 
@@ -358,6 +416,10 @@ class Jarvis:
         self.state = JarvisState.FABRICATING
         self.display.header("INITIATING 3D PRINT")
 
+        # Print start sound
+        if self.sounds:
+            self.sounds.play(SoundType.PRINT_START)
+
         self.say("Preparing fabrication sequence.")
 
         # Simulated print preview
@@ -373,23 +435,33 @@ class Jarvis:
         time.sleep(1)
         self.say("Heating bed to 60 degrees. Nozzle to 210 degrees.")
 
-        # Temperature animation
+        # Temperature animation with sounds
         for temp in range(25, 61, 5):
             self.display.progress_bar(temp / 60, label=f"Bed: {temp}°C")
             time.sleep(0.1)
         print()
+        if self.sounds:
+            self.sounds.click()
         self.display.success("Bed temperature reached")
 
         for temp in range(25, 211, 20):
             self.display.progress_bar(temp / 210, label=f"Nozzle: {temp}°C")
             time.sleep(0.1)
         print()
+        if self.sounds:
+            self.sounds.click()
         self.display.success("Nozzle temperature reached")
 
         self.say("Temperatures stable. Beginning fabrication.")
 
-        # Print simulation
+        # Print simulation with layer sounds
+        if self.sounds:
+            self.sounds.processing()
         self.display.fabrication_animation(layers=15, duration=5.0)
+
+        # Print complete sound
+        if self.sounds:
+            self.sounds.play(SoundType.PRINT_COMPLETE, block=True)
 
         self.display.banner("printer")
         self.say("Fabrication complete. Your object is ready.")
@@ -553,13 +625,24 @@ class Jarvis:
         """Shutdown JARVIS gracefully."""
         self.display.header("SHUTTING DOWN")
 
+        # Stop ambient sound
+        if self.sounds:
+            self.sounds.stop_ambient()
+
         self.say("Powering down systems. Goodbye.")
+
+        # Power down sound
+        if self.sounds:
+            self.sounds.play(SoundType.POWER_DOWN, block=True)
 
         if self.voice:
             self.voice.wait()
             self.voice.stop()
 
-        time.sleep(1)
+        if self.sounds:
+            self.sounds.stop()
+
+        time.sleep(0.5)
         self.display.info("JARVIS offline")
         print()
 
