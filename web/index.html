@@ -318,6 +318,27 @@
             0% { top: 0; opacity: 1; }
             100% { top: 100%; opacity: 0; }
         }
+
+        .sound-toggle {
+            background: transparent;
+            border: 1px solid rgba(0, 212, 255, 0.5);
+            color: #00d4ff;
+            font-size: 1.2rem;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 4px;
+            transition: all 0.3s;
+        }
+
+        .sound-toggle:hover {
+            background: rgba(0, 212, 255, 0.2);
+            box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
+        }
+
+        .sound-toggle.muted {
+            color: #666;
+            border-color: #444;
+        }
     </style>
 </head>
 <body>
@@ -338,6 +359,9 @@
                     <span>LASER STANDBY</span>
                 </div>
                 <div class="status-item" id="clock">--:--:--</div>
+                <button class="sound-toggle" id="sound-toggle" onclick="toggleSound()" title="Toggle Sound">
+                    🔊
+                </button>
             </div>
         </header>
 
@@ -436,6 +460,290 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
     <script>
+        // ═══════════════════════════════════════════════════════════════════
+        // JARVIS SOUND SYSTEM - Web Audio API
+        // ═══════════════════════════════════════════════════════════════════
+
+        class JarvisSounds {
+            constructor() {
+                this.audioContext = null;
+                this.masterGain = null;
+                this.ambientOscillator = null;
+                this.enabled = true;
+                this.volume = 0.5;
+                this.initialized = false;
+            }
+
+            init() {
+                if (this.initialized) return;
+                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                this.masterGain = this.audioContext.createGain();
+                this.masterGain.gain.value = this.volume;
+                this.masterGain.connect(this.audioContext.destination);
+                this.initialized = true;
+            }
+
+            ensureContext() {
+                if (!this.initialized) this.init();
+                if (this.audioContext.state === 'suspended') {
+                    this.audioContext.resume();
+                }
+            }
+
+            setVolume(vol) {
+                this.volume = Math.max(0, Math.min(1, vol));
+                if (this.masterGain) {
+                    this.masterGain.gain.value = this.volume;
+                }
+            }
+
+            playTone(frequency, duration, type = 'sine', volume = 0.5, fadeIn = 0.01, fadeOut = 0.05) {
+                if (!this.enabled) return;
+                this.ensureContext();
+
+                const osc = this.audioContext.createOscillator();
+                const gain = this.audioContext.createGain();
+                const now = this.audioContext.currentTime;
+
+                osc.type = type;
+                osc.frequency.value = frequency;
+
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(volume, now + fadeIn);
+                gain.gain.setValueAtTime(volume, now + duration - fadeOut);
+                gain.gain.linearRampToValueAtTime(0, now + duration);
+
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+
+                osc.start(now);
+                osc.stop(now + duration);
+            }
+
+            playSweep(startFreq, endFreq, duration, type = 'sine', volume = 0.4) {
+                if (!this.enabled) return;
+                this.ensureContext();
+
+                const osc = this.audioContext.createOscillator();
+                const gain = this.audioContext.createGain();
+                const now = this.audioContext.currentTime;
+
+                osc.type = type;
+                osc.frequency.setValueAtTime(startFreq, now);
+                osc.frequency.exponentialRampToValueAtTime(endFreq, now + duration);
+
+                gain.gain.setValueAtTime(0, now);
+                gain.gain.linearRampToValueAtTime(volume, now + 0.02);
+                gain.gain.setValueAtTime(volume, now + duration - 0.05);
+                gain.gain.linearRampToValueAtTime(0, now + duration);
+
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+
+                osc.start(now);
+                osc.stop(now + duration);
+            }
+
+            playChord(frequencies, duration, volume = 0.3) {
+                if (!this.enabled) return;
+                frequencies.forEach(freq => {
+                    this.playTone(freq, duration, 'sine', volume / frequencies.length);
+                });
+            }
+
+            playBeepSequence(frequencies, durations, gap = 0.05, volume = 0.4) {
+                if (!this.enabled) return;
+                this.ensureContext();
+
+                let time = this.audioContext.currentTime;
+                for (let i = 0; i < frequencies.length; i++) {
+                    const osc = this.audioContext.createOscillator();
+                    const gain = this.audioContext.createGain();
+                    const dur = durations[i] || 0.1;
+
+                    osc.type = 'sine';
+                    osc.frequency.value = frequencies[i];
+
+                    gain.gain.setValueAtTime(0, time);
+                    gain.gain.linearRampToValueAtTime(volume, time + 0.01);
+                    gain.gain.setValueAtTime(volume, time + dur - 0.02);
+                    gain.gain.linearRampToValueAtTime(0, time + dur);
+
+                    osc.connect(gain);
+                    gain.connect(this.masterGain);
+
+                    osc.start(time);
+                    osc.stop(time + dur);
+
+                    time += dur + gap;
+                }
+            }
+
+            // ═══════════════════════════════════════════════════════════════════
+            // SOUND EFFECTS
+            // ═══════════════════════════════════════════════════════════════════
+
+            boot() {
+                this.playSweep(50, 400, 0.8, 'sine', 0.4);
+                setTimeout(() => {
+                    this.playBeepSequence([200, 300, 400, 600, 800], [0.1, 0.1, 0.1, 0.1, 0.2], 0.02, 0.35);
+                }, 900);
+                setTimeout(() => {
+                    this.playChord([523.25, 659.25, 783.99], 0.5, 0.4);
+                }, 1800);
+            }
+
+            ready() {
+                this.playChord([523.25, 659.25, 783.99], 0.5, 0.4);
+            }
+
+            click() {
+                this.playTone(1200, 0.05, 'sine', 0.25, 0.005, 0.02);
+            }
+
+            confirm() {
+                this.playBeepSequence([600, 900], [0.1, 0.15], 0.02, 0.35);
+            }
+
+            error() {
+                this.playBeepSequence([400, 300, 200], [0.15, 0.15, 0.2], 0.05, 0.45);
+            }
+
+            warning() {
+                this.ensureContext();
+                const now = this.audioContext.currentTime;
+                for (let i = 0; i < 3; i++) {
+                    const osc = this.audioContext.createOscillator();
+                    const gain = this.audioContext.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = 440;
+                    gain.gain.setValueAtTime(0, now + i * 0.2);
+                    gain.gain.linearRampToValueAtTime(0.3, now + i * 0.2 + 0.05);
+                    gain.gain.linearRampToValueAtTime(0, now + i * 0.2 + 0.15);
+                    osc.connect(gain);
+                    gain.connect(this.masterGain);
+                    osc.start(now + i * 0.2);
+                    osc.stop(now + i * 0.2 + 0.2);
+                }
+            }
+
+            success() {
+                this.playChord([523.25, 659.25, 783.99, 1046.5], 0.6, 0.4);
+            }
+
+            scanStart() {
+                this.playSweep(200, 2000, 0.5, 'sine', 0.35);
+            }
+
+            scanPulse() {
+                this.ensureContext();
+                const now = this.audioContext.currentTime;
+                const osc = this.audioContext.createOscillator();
+                const gain = this.audioContext.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = 800;
+
+                // Pulsing envelope
+                gain.gain.setValueAtTime(0, now);
+                for (let i = 0; i < 4; i++) {
+                    gain.gain.linearRampToValueAtTime(0.2, now + i * 0.5 + 0.1);
+                    gain.gain.linearRampToValueAtTime(0.05, now + i * 0.5 + 0.4);
+                }
+                gain.gain.linearRampToValueAtTime(0, now + 2);
+
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start(now);
+                osc.stop(now + 2);
+            }
+
+            scanComplete() {
+                this.playBeepSequence([400, 600, 800, 1000], [0.08, 0.08, 0.08, 0.2], 0.02, 0.4);
+            }
+
+            processing() {
+                this.ensureContext();
+                const now = this.audioContext.currentTime;
+                const osc = this.audioContext.createOscillator();
+                const gain = this.audioContext.createGain();
+                osc.type = 'sine';
+                osc.frequency.value = 600;
+
+                // Pulsing envelope
+                gain.gain.setValueAtTime(0, now);
+                for (let i = 0; i < 3; i++) {
+                    gain.gain.linearRampToValueAtTime(0.15, now + i * 0.5 + 0.1);
+                    gain.gain.linearRampToValueAtTime(0.05, now + i * 0.5 + 0.4);
+                }
+                gain.gain.linearRampToValueAtTime(0, now + 1.5);
+
+                osc.connect(gain);
+                gain.connect(this.masterGain);
+                osc.start(now);
+                osc.stop(now + 1.5);
+            }
+
+            printStart() {
+                this.playSweep(100, 400, 0.8, 'sine', 0.35);
+            }
+
+            printLayer() {
+                this.playTone(300, 0.03, 'sine', 0.15, 0.005, 0.01);
+            }
+
+            printComplete() {
+                this.playBeepSequence([523.25, 659.25, 783.99, 1046.5, 1318.5], [0.1, 0.1, 0.1, 0.1, 0.3], 0.03, 0.4);
+            }
+
+            laserStart() {
+                this.playSweep(1000, 200, 0.5, 'sawtooth', 0.25);
+            }
+
+            powerDown() {
+                this.playSweep(800, 50, 1.2, 'sine', 0.35);
+            }
+
+            startAmbient() {
+                if (!this.enabled || this.ambientOscillator) return;
+                this.ensureContext();
+
+                // Create ambient drone
+                this.ambientOscillator = this.audioContext.createOscillator();
+                const ambientGain = this.audioContext.createGain();
+                this.ambientOscillator.type = 'sine';
+                this.ambientOscillator.frequency.value = 60;
+                ambientGain.gain.value = 0.03;
+
+                this.ambientOscillator.connect(ambientGain);
+                ambientGain.connect(this.masterGain);
+                this.ambientOscillator.start();
+
+                // Store reference for stopping
+                this.ambientGain = ambientGain;
+            }
+
+            stopAmbient() {
+                if (this.ambientOscillator) {
+                    this.ambientOscillator.stop();
+                    this.ambientOscillator = null;
+                }
+            }
+
+            toggle() {
+                this.enabled = !this.enabled;
+                if (!this.enabled) {
+                    this.stopAmbient();
+                }
+                return this.enabled;
+            }
+        }
+
+        const sounds = new JarvisSounds();
+
+        // ═══════════════════════════════════════════════════════════════════
+        // THREE.JS SCENE
+        // ═══════════════════════════════════════════════════════════════════
+
         let scene, camera, renderer, controls, model;
 
         function initThreeJS() {
@@ -545,61 +853,104 @@
             input.value = '';
             if (!command) return;
 
+            sounds.click();
             log('Command: ' + command, 'info');
             if (command.includes('scan')) startScan();
             else if (command.includes('print')) startPrint();
             else if (command.includes('analyze')) analyzeModel();
             else if (command.includes('repair')) repairModel();
+            else if (command.includes('hollow')) hollowModel();
             else if (command.includes('status')) showStatus();
             else if (command.includes('stop')) emergencyStop();
-            else log('Unknown command. Try: scan, print, analyze, repair, status', 'warning');
+            else if (command.includes('sound')) {
+                const enabled = sounds.toggle();
+                log('Sound effects ' + (enabled ? 'enabled' : 'disabled'), 'info');
+            }
+            else {
+                sounds.warning();
+                log('Unknown command. Try: scan, print, analyze, repair, hollow, status, sound', 'warning');
+            }
         }
 
         function startScan() {
+            sounds.confirm();
+            sounds.scanStart();
             log('Initializing LiDAR scanner...', 'info');
             showProgress('Scanning', 3000);
-            setTimeout(function() { log('Scan complete! 847,293 vertices captured.', 'success'); }, 3000);
+            setTimeout(function() { sounds.scanPulse(); }, 500);
+            setTimeout(function() {
+                sounds.scanComplete();
+                sounds.success();
+                log('Scan complete! 847,293 vertices captured.', 'success');
+            }, 3000);
         }
 
         function analyzeModel() {
+            sounds.confirm();
+            sounds.processing();
             log('Analyzing mesh topology...', 'info');
             showProgress('Analyzing', 2000);
-            setTimeout(function() { log('Mesh is watertight and printable.', 'success'); }, 2000);
+            setTimeout(function() {
+                sounds.success();
+                log('Mesh is watertight and printable.', 'success');
+            }, 2000);
         }
 
         function repairModel() {
+            sounds.confirm();
+            sounds.processing();
             log('Running auto-repair algorithm...', 'info');
             showProgress('Repairing', 2500);
-            setTimeout(function() { log('Repaired 3 holes and 12 non-manifold edges.', 'success'); }, 2500);
+            setTimeout(function() { sounds.warning(); log('Found 3 holes and 12 non-manifold edges...', 'warning'); }, 800);
+            setTimeout(function() {
+                sounds.success();
+                log('Repaired 3 holes and 12 non-manifold edges.', 'success');
+            }, 2500);
         }
 
         function hollowModel() {
+            sounds.confirm();
+            sounds.processing();
             log('Creating hollow shell (2mm walls)...', 'info');
             showProgress('Hollowing', 2000);
-            setTimeout(function() { log('Hollowing complete. Material savings: 68%', 'success'); }, 2000);
+            setTimeout(function() {
+                sounds.success();
+                log('Hollowing complete. Material savings: 68%', 'success');
+            }, 2000);
         }
 
         function startPrint() {
+            sounds.confirm();
+            sounds.printStart();
             log('Initiating print sequence...', 'info');
             log('Heating bed to 60C...', 'info');
 
             var bedTemp = 25;
             var bedInterval = setInterval(function() {
                 bedTemp += 5;
+                sounds.printLayer();
                 document.getElementById('bed-temp').textContent = bedTemp + '°C';
                 if (bedTemp >= 60) {
                     clearInterval(bedInterval);
+                    sounds.click();
                     log('Bed temperature reached.', 'success');
 
                     var nozzleTemp = 25;
                     var nozzleInterval = setInterval(function() {
                         nozzleTemp += 15;
+                        sounds.printLayer();
                         document.getElementById('nozzle-temp').textContent = nozzleTemp + '°C';
                         if (nozzleTemp >= 210) {
                             clearInterval(nozzleInterval);
+                            sounds.click();
                             log('Nozzle temperature reached.', 'success');
                             log('Beginning fabrication...', 'info');
+                            sounds.processing();
                             showProgress('Printing', 10000);
+                            setTimeout(function() {
+                                sounds.printComplete();
+                                log('Print complete!', 'success');
+                            }, 10000);
                         }
                     }, 200);
                 }
@@ -607,23 +958,48 @@
         }
 
         function startLaser() {
+            sounds.confirm();
+            sounds.laserStart();
             log('Preparing laser cutter...', 'info');
+            sounds.warning();
             log('WARNING: Ensure safety enclosure is closed!', 'warning');
             showProgress('Laser Cutting', 5000);
-            setTimeout(function() { log('Laser cutting complete.', 'success'); }, 5000);
+            setTimeout(function() {
+                sounds.success();
+                log('Laser cutting complete.', 'success');
+            }, 5000);
         }
 
         function emergencyStop() {
+            sounds.error();
             log('EMERGENCY STOP ACTIVATED', 'error');
             document.getElementById('progress-container').style.display = 'none';
+            sounds.powerDown();
             log('All operations halted. Systems safe.', 'warning');
         }
 
         function showStatus() {
+            sounds.click();
             log('=== SYSTEM STATUS ===', 'info');
             log('Printer: IDLE', 'success');
             log('Laser: STANDBY', 'success');
             log('Material Bay: 4/4 slots loaded', 'success');
+            sounds.confirm();
+        }
+
+        function toggleSound() {
+            const enabled = sounds.toggle();
+            const btn = document.getElementById('sound-toggle');
+            if (enabled) {
+                btn.textContent = '🔊';
+                btn.classList.remove('muted');
+                sounds.confirm();
+                log('Sound effects enabled', 'info');
+            } else {
+                btn.textContent = '🔇';
+                btn.classList.add('muted');
+                log('Sound effects disabled', 'info');
+            }
         }
 
         function showProgress(label, duration) {
@@ -655,11 +1031,34 @@
         setInterval(updateClock, 1000);
         updateClock();
 
+        // Initialize sound on first user interaction (browser requirement)
+        function initAudioOnInteraction() {
+            sounds.init();
+            sounds.boot();
+            sounds.startAmbient();
+            document.removeEventListener('click', initAudioOnInteraction);
+            document.removeEventListener('keydown', initAudioOnInteraction);
+        }
+
         window.onload = function() {
             initThreeJS();
             log('JARVIS Fabrication System initialized', 'info');
             log('All systems nominal', 'success');
+            log('Click anywhere to enable audio...', 'info');
             log('Ready for command...', 'info');
+
+            // Browser requires user interaction to start audio
+            document.addEventListener('click', initAudioOnInteraction);
+            document.addEventListener('keydown', initAudioOnInteraction);
+
+            // Add hover sounds to buttons
+            document.querySelectorAll('.control-btn').forEach(function(btn) {
+                btn.addEventListener('mouseenter', function() {
+                    if (sounds.initialized) {
+                        sounds.playTone(800, 0.03, 'sine', 0.1);
+                    }
+                });
+            });
         };
     </script>
 </body>
