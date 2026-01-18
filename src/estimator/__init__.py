@@ -1,27 +1,48 @@
-"""
-Cost Estimation Module.
+"""Estimator module for cost and time estimation.
 
-Provides comprehensive cost, time, and material usage estimation for:
-- 3D printing (FDM/FFF)
-- Laser cutting
+Provides print cost estimation, time prediction, cost optimization,
+and eco-friendly printing optimization.
 """
 
-from .cost_estimator import (
-    CostEstimator,
-    PrintEstimate,
-    LaserEstimate,
-    CostBreakdown,
-    estimate_print_cost,
-    estimate_laser_cost,
-    format_estimate,
+from src.estimator.cost_optimizer import (
+    CostOptimizer,
+    CostConfig,
+    CostEstimate,
+    PrintSettings,
+    OptimizationResult,
+    create_optimizer,
+    estimate_cost,
+)
+
+from src.estimator.eco_mode import (
+    EcoOptimizer,
+    EcoConfig,
+    EcoMetrics,
+    EcoLevel,
+    EcoOptimizationResult,
+    MaterialSustainability,
+    MaterialType,
+    create_eco_optimizer,
+    calculate_carbon_footprint,
 )
 
 __all__ = [
-    "CostEstimator",
-    "PrintEstimate",
-    "LaserEstimate",
-    "CostBreakdown",
-    "estimate_print_cost",
-    "estimate_laser_cost",
-    "format_estimate",
+    # Cost optimizer
+    "CostOptimizer",
+    "CostConfig",
+    "CostEstimate",
+    "PrintSettings",
+    "OptimizationResult",
+    "create_optimizer",
+    "estimate_cost",
+    # Eco mode
+    "EcoOptimizer",
+    "EcoConfig",
+    "EcoMetrics",
+    "EcoLevel",
+    "EcoOptimizationResult",
+    "MaterialSustainability",
+    "MaterialType",
+    "create_eco_optimizer",
+    "calculate_carbon_footprint",
 ]

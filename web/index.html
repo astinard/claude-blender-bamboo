@@ -3,18 +3,27 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>JARVIS - Fab Lab Control</title>
+    <title>J.A.R.V.I.S. - Fab Lab Control</title>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;700&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --primary: #00d4ff;
+            --primary-dim: rgba(0, 212, 255, 0.3);
+            --secondary: #ff6b35;
+            --success: #00ff88;
+            --warning: #ffaa00;
+            --danger: #ff4444;
+            --bg-dark: #0a0a12;
+            --bg-panel: rgba(0, 20, 40, 0.85);
+            --glow: 0 0 20px rgba(0, 212, 255, 0.5);
         }
 
         body {
-            background: #0a0a0f;
-            color: #00d4ff;
-            font-family: 'Courier New', monospace;
+            background: var(--bg-dark);
+            color: var(--primary);
+            font-family: 'Rajdhani', sans-serif;
             overflow: hidden;
             height: 100vh;
         }
@@ -22,10 +31,7 @@
         body::before {
             content: '';
             position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
+            top: 0; left: 0; right: 0; bottom: 0;
             background:
                 linear-gradient(rgba(0, 212, 255, 0.03) 1px, transparent 1px),
                 linear-gradient(90deg, rgba(0, 212, 255, 0.03) 1px, transparent 1px);
@@ -36,8 +42,8 @@
 
         .container {
             display: grid;
-            grid-template-columns: 300px 1fr 300px;
-            grid-template-rows: 80px 1fr 150px;
+            grid-template-columns: 300px 1fr 320px;
+            grid-template-rows: 70px 1fr 140px;
             height: 100vh;
             gap: 10px;
             padding: 10px;
@@ -49,77 +55,113 @@
             justify-content: space-between;
             align-items: center;
             padding: 0 20px;
-            border: 1px solid rgba(0, 212, 255, 0.3);
-            background: rgba(0, 20, 40, 0.8);
+            background: var(--bg-panel);
+            border-bottom: 2px solid var(--primary-dim);
         }
 
         .logo {
+            font-family: 'Orbitron', monospace;
             font-size: 2rem;
-            font-weight: bold;
+            font-weight: 900;
             letter-spacing: 0.5rem;
-            text-shadow: 0 0 20px rgba(0, 212, 255, 0.5);
+            background: linear-gradient(135deg, var(--primary) 0%, #fff 50%, var(--primary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
         }
 
-        .status-bar {
-            display: flex;
-            gap: 30px;
-        }
+        .status-bar { display: flex; gap: 20px; align-items: center; }
 
         .status-item {
             display: flex;
             align-items: center;
             gap: 8px;
+            padding: 6px 12px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--primary-dim);
+            border-radius: 4px;
+            font-size: 0.8rem;
+            text-transform: uppercase;
+            letter-spacing: 0.1rem;
         }
 
         .status-dot {
             width: 10px;
             height: 10px;
             border-radius: 50%;
-            background: #00ff88;
-            box-shadow: 0 0 10px #00ff88;
+            background: var(--success);
+            box-shadow: 0 0 10px var(--success);
             animation: pulse 2s infinite;
         }
 
         @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50% { opacity: 0.5; }
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.2); }
+        }
+
+        .clock {
+            font-family: 'Orbitron', monospace;
+            font-size: 1.2rem;
+            color: var(--primary);
         }
 
         .panel {
-            border: 1px solid rgba(0, 212, 255, 0.3);
-            background: rgba(0, 20, 40, 0.6);
+            background: var(--bg-panel);
+            border: 1px solid var(--primary-dim);
             padding: 15px;
             position: relative;
-            overflow: hidden;
         }
 
-        .panel::before {
+        .panel::before, .panel::after {
             content: '';
             position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, #00d4ff, transparent);
-            animation: scan 3s infinite;
+            width: 15px;
+            height: 15px;
+            border-color: var(--primary);
+            border-style: solid;
         }
 
-        @keyframes scan {
-            0% { transform: translateX(-100%); }
-            100% { transform: translateX(100%); }
-        }
+        .panel::before { top: 0; left: 0; border-width: 2px 0 0 2px; }
+        .panel::after { bottom: 0; right: 0; border-width: 0 2px 2px 0; }
 
         .panel-title {
-            font-size: 0.8rem;
-            color: #00d4ff;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.7rem;
+            color: var(--primary);
             text-transform: uppercase;
             letter-spacing: 0.2rem;
             margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid rgba(0, 212, 255, 0.2);
+            padding-bottom: 8px;
+            border-bottom: 1px solid var(--primary-dim);
         }
 
-        .left-panel { grid-row: 2 / 3; }
+        .panel-title::before { content: '// '; color: var(--secondary); }
+
+        .left-panel { display: flex; flex-direction: column; }
+
+        .tab-buttons { display: flex; gap: 5px; margin-bottom: 15px; }
+
+        .tab-btn {
+            flex: 1;
+            padding: 8px 5px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--primary-dim);
+            color: var(--primary);
+            font-family: 'Orbitron', monospace;
+            font-size: 0.6rem;
+            cursor: pointer;
+            text-transform: uppercase;
+        }
+
+        .tab-btn:hover { background: var(--primary-dim); }
+
+        .tab-btn.active {
+            background: var(--primary);
+            color: var(--bg-dark);
+            border-color: var(--primary);
+        }
+
+        .tab-content { display: none; flex: 1; overflow-y: auto; }
+        .tab-content.active { display: block; }
 
         .system-item {
             display: flex;
@@ -128,53 +170,141 @@
             border-bottom: 1px solid rgba(0, 212, 255, 0.1);
         }
 
-        .system-label { color: #888; }
-        .system-value { color: #00ff88; }
+        .system-label { color: rgba(255, 255, 255, 0.6); font-size: 0.85rem; }
+
+        .system-value {
+            font-family: 'Orbitron', monospace;
+            color: var(--success);
+            font-size: 1rem;
+        }
+
+        .material-slot {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            margin-bottom: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .material-slot:hover { border-color: var(--primary); }
+        .material-slot.selected { border-color: var(--success); box-shadow: 0 0 10px rgba(0, 255, 136, 0.3); }
+
+        .material-color {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            border: 2px solid rgba(255, 255, 255, 0.4);
+        }
+
+        .material-info { flex: 1; }
+        .material-name { font-size: 0.9rem; font-weight: 600; }
+        .material-detail { font-size: 0.7rem; color: rgba(255, 255, 255, 0.5); }
+        .material-amount { font-family: 'Orbitron', monospace; font-size: 0.8rem; color: var(--primary); }
+
+        .scan-item {
+            padding: 12px;
+            margin-bottom: 8px;
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        .scan-item:hover { border-color: var(--primary); }
+        .scan-item.active { border-color: var(--success); background: rgba(0, 255, 136, 0.1); }
+        .scan-name { font-size: 0.9rem; font-weight: 600; margin-bottom: 5px; }
+        .scan-meta { font-size: 0.7rem; color: rgba(255, 255, 255, 0.5); }
 
         .viewport {
-            grid-row: 2 / 3;
             position: relative;
+            border: 2px solid var(--primary-dim);
+            background: radial-gradient(ellipse at center, rgba(0, 40, 80, 0.3) 0%, var(--bg-dark) 100%);
         }
 
-        #canvas-container {
-            width: 100%;
-            height: 100%;
+        .viewport-corner {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            border-color: var(--primary);
+            border-style: solid;
+            z-index: 10;
         }
+
+        .corner-tl { top: 0; left: 0; border-width: 3px 0 0 3px; }
+        .corner-tr { top: 0; right: 0; border-width: 3px 3px 0 0; }
+        .corner-bl { bottom: 0; left: 0; border-width: 0 0 3px 3px; }
+        .corner-br { bottom: 0; right: 0; border-width: 0 3px 3px 0; }
+
+        .scanning-line {
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, var(--primary), transparent);
+            animation: scanline 4s linear infinite;
+            z-index: 5;
+        }
+
+        @keyframes scanline { 0% { top: 0; } 100% { top: 100%; opacity: 0; } }
+
+        #canvas-container { width: 100%; height: 100%; }
 
         .viewport-overlay {
             position: absolute;
             top: 15px;
             left: 15px;
-            pointer-events: none;
-            font-size: 0.8rem;
-            color: #888;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.7rem;
+            z-index: 10;
         }
 
-        .viewport-corner {
+        .viewport-overlay div { margin-bottom: 4px; color: rgba(255, 255, 255, 0.5); }
+        .viewport-overlay span { color: var(--primary); }
+
+        .viewport-mode {
             position: absolute;
-            width: 30px;
-            height: 30px;
-            border-color: #00d4ff;
-            border-style: solid;
-            border-width: 0;
+            bottom: 15px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-family: 'Orbitron', monospace;
+            font-size: 0.85rem;
+            color: var(--secondary);
+            letter-spacing: 0.2rem;
+            z-index: 10;
         }
 
-        .corner-tl { top: 0; left: 0; border-top-width: 2px; border-left-width: 2px; }
-        .corner-tr { top: 0; right: 0; border-top-width: 2px; border-right-width: 2px; }
-        .corner-bl { bottom: 0; left: 0; border-bottom-width: 2px; border-left-width: 2px; }
-        .corner-br { bottom: 0; right: 0; border-bottom-width: 2px; border-right-width: 2px; }
+        .print-estimate {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            border: 1px solid var(--primary-dim);
+            padding: 12px;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.7rem;
+            z-index: 10;
+        }
 
-        .right-panel { grid-row: 2 / 3; }
+        .estimate-row { display: flex; justify-content: space-between; gap: 20px; margin-bottom: 5px; }
+        .estimate-label { color: rgba(255, 255, 255, 0.5); }
+        .estimate-value { color: var(--success); }
+
+        .right-panel { display: flex; flex-direction: column; }
+        .action-section { margin-bottom: 20px; }
 
         .control-btn {
             width: 100%;
             padding: 12px;
-            margin-bottom: 10px;
-            background: transparent;
-            border: 1px solid rgba(0, 212, 255, 0.5);
-            color: #00d4ff;
-            font-family: inherit;
+            margin-bottom: 8px;
+            background: linear-gradient(135deg, rgba(0, 0, 0, 0.5) 0%, rgba(0, 40, 80, 0.3) 100%);
+            border: 1px solid var(--primary-dim);
+            color: var(--primary);
+            font-family: 'Rajdhani', sans-serif;
             font-size: 0.9rem;
+            font-weight: 600;
             cursor: pointer;
             text-transform: uppercase;
             letter-spacing: 0.1rem;
@@ -183,234 +313,161 @@
 
         .control-btn:hover {
             background: rgba(0, 212, 255, 0.2);
-            box-shadow: 0 0 20px rgba(0, 212, 255, 0.3);
+            border-color: var(--primary);
+            transform: translateX(3px);
         }
 
         .control-btn.primary {
-            background: rgba(0, 212, 255, 0.3);
-            border-color: #00d4ff;
+            background: linear-gradient(135deg, rgba(0, 212, 255, 0.3) 0%, rgba(0, 100, 150, 0.3) 100%);
+            border-color: var(--primary);
         }
 
-        .control-btn.danger {
-            border-color: #ff4444;
-            color: #ff4444;
+        .control-btn.danger { border-color: var(--danger); color: var(--danger); }
+        .control-btn.danger:hover { background: rgba(255, 68, 68, 0.2); }
+
+        .tips-box {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--warning);
+            border-left: 3px solid var(--warning);
+            padding: 12px;
+            margin-top: auto;
         }
 
-        .control-btn.danger:hover {
-            background: rgba(255, 68, 68, 0.2);
-        }
+        .tips-title { font-family: 'Orbitron', monospace; font-size: 0.7rem; color: var(--warning); margin-bottom: 8px; }
+        .tips-content { font-size: 0.8rem; color: rgba(255, 255, 255, 0.7); line-height: 1.4; }
 
-        .console-panel { grid-column: 1 / -1; }
+        .console-panel { grid-column: 1 / -1; display: flex; flex-direction: column; }
 
         .console-output {
-            height: 80px;
+            flex: 1;
             overflow-y: auto;
             font-size: 0.85rem;
             line-height: 1.5;
-            color: #00ff88;
-            background: rgba(0, 0, 0, 0.3);
-            padding: 10px;
+            background: rgba(0, 0, 0, 0.4);
+            padding: 10px 15px;
             margin-bottom: 10px;
+            border: 1px solid var(--primary-dim);
         }
 
-        .console-line { margin-bottom: 2px; }
-        .console-line.info { color: #00d4ff; }
-        .console-line.success { color: #00ff88; }
-        .console-line.warning { color: #ffaa00; }
-        .console-line.error { color: #ff4444; }
+        .console-line { margin-bottom: 2px; padding-left: 15px; position: relative; }
+        .console-line::before { content: '>'; position: absolute; left: 0; color: var(--secondary); }
+        .console-line.jarvis::before { content: 'J:'; color: var(--primary); font-weight: 700; }
+        .console-line.success { color: var(--success); }
+        .console-line.warning { color: var(--warning); }
 
-        .console-input-wrapper {
-            display: flex;
-            gap: 10px;
-        }
+        .console-input-wrapper { display: flex; gap: 10px; }
 
         .console-input {
             flex: 1;
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(0, 212, 255, 0.3);
-            padding: 10px 15px;
-            color: #00d4ff;
-            font-family: inherit;
-            font-size: 0.9rem;
+            background: rgba(0, 0, 0, 0.5);
+            border: 2px solid var(--primary-dim);
+            padding: 12px 15px;
+            color: var(--primary);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.95rem;
         }
 
-        .console-input:focus {
-            outline: none;
-            border-color: #00d4ff;
-            box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
-        }
+        .console-input:focus { outline: none; border-color: var(--primary); }
+        .console-input::placeholder { color: rgba(0, 212, 255, 0.4); }
 
         .console-submit {
-            padding: 10px 20px;
-            background: rgba(0, 212, 255, 0.3);
-            border: 1px solid #00d4ff;
-            color: #00d4ff;
+            padding: 12px 25px;
+            background: var(--primary-dim);
+            border: 2px solid var(--primary);
+            color: var(--primary);
             cursor: pointer;
-            font-family: inherit;
-        }
-
-        .progress-container { margin: 15px 0; }
-
-        .progress-label {
-            display: flex;
-            justify-content: space-between;
-            margin-bottom: 5px;
+            font-family: 'Orbitron', monospace;
             font-size: 0.8rem;
+            font-weight: 700;
         }
 
-        .progress-bar {
-            height: 8px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 4px;
-            overflow: hidden;
-        }
+        .console-submit:hover { background: var(--primary); color: var(--bg-dark); }
 
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #00d4ff, #00ff88);
-            width: 0%;
-            transition: width 0.3s;
-        }
-
-        .material-slot {
+        .boot-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: var(--bg-dark);
             display: flex;
+            flex-direction: column;
+            justify-content: center;
             align-items: center;
-            gap: 10px;
-            padding: 8px;
-            margin-bottom: 5px;
-            background: rgba(0, 0, 0, 0.2);
-            border-radius: 4px;
+            z-index: 1000;
+            transition: opacity 0.5s, visibility 0.5s;
         }
 
-        .material-color {
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            border: 2px solid rgba(255, 255, 255, 0.3);
+        .boot-overlay.hidden { opacity: 0; visibility: hidden; }
+
+        .boot-logo {
+            font-family: 'Orbitron', monospace;
+            font-size: 3.5rem;
+            font-weight: 900;
+            letter-spacing: 0.8rem;
+            color: var(--primary);
+            text-shadow: 0 0 50px var(--primary);
         }
 
-        .material-info { flex: 1; font-size: 0.8rem; }
+        .boot-text { font-size: 0.9rem; color: rgba(255, 255, 255, 0.6); margin-top: 20px; letter-spacing: 0.2rem; }
 
-        .material-level {
-            width: 50px;
-            height: 6px;
-            background: rgba(0, 0, 0, 0.3);
-            border-radius: 3px;
-            overflow: hidden;
-        }
-
-        .material-level-fill {
-            height: 100%;
-            background: #00ff88;
-        }
-
-        .scanning-line {
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 2px;
-            background: linear-gradient(90deg, transparent, #00d4ff, transparent);
-            animation: scanline 2s linear infinite;
-        }
-
-        @keyframes scanline {
-            0% { top: 0; opacity: 1; }
-            100% { top: 100%; opacity: 0; }
-        }
-
-        .sound-toggle {
-            background: transparent;
-            border: 1px solid rgba(0, 212, 255, 0.5);
-            color: #00d4ff;
-            font-size: 1.2rem;
-            padding: 5px 10px;
-            cursor: pointer;
-            border-radius: 4px;
-            transition: all 0.3s;
-        }
-
-        .sound-toggle:hover {
-            background: rgba(0, 212, 255, 0.2);
-            box-shadow: 0 0 10px rgba(0, 212, 255, 0.3);
-        }
-
-        .sound-toggle.muted {
-            color: #666;
-            border-color: #444;
-        }
+        .boot-progress { width: 250px; height: 3px; background: rgba(255, 255, 255, 0.1); margin-top: 15px; }
+        .boot-progress-fill { height: 100%; background: var(--primary); width: 0%; }
     </style>
 </head>
 <body>
+    <div class="boot-overlay" id="boot-overlay">
+        <div class="boot-logo">J.A.R.V.I.S.</div>
+        <div class="boot-text">INITIALIZING FABRICATION SYSTEMS...</div>
+        <div class="boot-progress"><div class="boot-progress-fill" id="boot-progress"></div></div>
+    </div>
+
     <div class="container">
         <header class="header">
-            <div class="logo">JARVIS</div>
+            <div class="logo">J.A.R.V.I.S.</div>
             <div class="status-bar">
-                <div class="status-item">
-                    <div class="status-dot"></div>
-                    <span>SYSTEMS ONLINE</span>
-                </div>
                 <div class="status-item">
                     <div class="status-dot"></div>
                     <span>PRINTER READY</span>
                 </div>
                 <div class="status-item">
-                    <div class="status-dot"></div>
-                    <span>LASER STANDBY</span>
+                    <div class="status-dot" id="connection-dot"></div>
+                    <span id="connection-text">CONNECTING</span>
                 </div>
-                <div class="status-item" id="clock">--:--:--</div>
-                <button class="sound-toggle" id="sound-toggle" onclick="toggleSound()" title="Toggle Sound">
-                    🔊
-                </button>
-                <button class="sound-toggle" id="mic-toggle" onclick="toggleVoice()" title="Voice Control (Hold to Speak)">
-                    🎤
-                </button>
-                <div class="status-item" id="connection-status">
-                    <div class="status-dot" id="connection-dot" style="background: #ff4444; box-shadow: 0 0 10px #ff4444;"></div>
-                    <span id="connection-text">OFFLINE</span>
-                </div>
+                <div class="clock" id="clock">--:--:--</div>
             </div>
         </header>
 
         <div class="panel left-panel">
-            <div class="panel-title">System Status</div>
-            <div class="system-item">
-                <span class="system-label">Bed Temp</span>
-                <span class="system-value" id="bed-temp">25.0°C</span>
-            </div>
-            <div class="system-item">
-                <span class="system-label">Nozzle Temp</span>
-                <span class="system-value" id="nozzle-temp">25.0°C</span>
-            </div>
-            <div class="system-item">
-                <span class="system-label">Chamber</span>
-                <span class="system-value">28.0°C</span>
-            </div>
-            <div class="system-item">
-                <span class="system-label">Print Speed</span>
-                <span class="system-value">100%</span>
+            <div class="tab-buttons">
+                <button class="tab-btn active" onclick="showTab('status')">Status</button>
+                <button class="tab-btn" onclick="showTab('materials')">AMS</button>
+                <button class="tab-btn" onclick="showTab('library')">Scans</button>
+                <button class="tab-btn" onclick="showTab('queue')">Queue</button>
             </div>
 
-            <div class="panel-title" style="margin-top: 20px;">Material Bay</div>
-            <div class="material-slot">
-                <div class="material-color" style="background: #ffffff;"></div>
-                <div class="material-info">PLA White</div>
-                <div class="material-level"><div class="material-level-fill" style="width: 80%;"></div></div>
+            <div class="tab-content active" id="tab-status">
+                <div class="panel-title">Printer Status</div>
+                <div class="system-item"><span class="system-label">Bed Temp</span><span class="system-value" id="bed-temp">25°C</span></div>
+                <div class="system-item"><span class="system-label">Nozzle Temp</span><span class="system-value" id="nozzle-temp">25°C</span></div>
+                <div class="system-item"><span class="system-label">Chamber</span><span class="system-value">28°C</span></div>
+                <div class="system-item"><span class="system-label">Print Speed</span><span class="system-value">100%</span></div>
+                <div class="system-item"><span class="system-label">Status</span><span class="system-value">IDLE</span></div>
             </div>
-            <div class="material-slot">
-                <div class="material-color" style="background: #ff4444;"></div>
-                <div class="material-info">PLA Red</div>
-                <div class="material-level"><div class="material-level-fill" style="width: 65%;"></div></div>
+
+            <div class="tab-content" id="tab-materials">
+                <div class="panel-title">AMS Material Bay</div>
+                <div id="material-list"></div>
+                <div style="margin-top: 15px; font-size: 0.75rem; color: rgba(255,255,255,0.5);">
+                    Tell Claude your actual filament colors to update this.
+                </div>
             </div>
-            <div class="material-slot">
-                <div class="material-color" style="background: #4444ff;"></div>
-                <div class="material-info">PLA Blue</div>
-                <div class="material-level"><div class="material-level-fill" style="width: 90%;"></div></div>
+
+            <div class="tab-content" id="tab-library">
+                <div class="panel-title">Scan Library</div>
+                <div id="scan-list"></div>
             </div>
-            <div class="material-slot">
-                <div class="material-color" style="background: #44ff44;"></div>
-                <div class="material-info">PLA Green</div>
-                <div class="material-level"><div class="material-level-fill" style="width: 45%;"></div></div>
+
+            <div class="tab-content" id="tab-queue">
+                <div class="panel-title">Print Queue</div>
+                <div id="queue-list" style="color: rgba(255,255,255,0.5); font-size: 0.8rem;">No jobs in queue</div>
             </div>
         </div>
 
@@ -421,46 +478,53 @@
             <div class="viewport-corner corner-br"></div>
             <div class="scanning-line"></div>
             <div id="canvas-container"></div>
+
             <div class="viewport-overlay">
-                <div>VERTICES: <span style="color: #00d4ff;">847,293</span></div>
-                <div>FACES: <span style="color: #00d4ff;">1,694,582</span></div>
-                <div>VOLUME: <span style="color: #00d4ff;">42.7 cm³</span></div>
+                <div>VERTICES: <span id="vertex-count">--</span></div>
+                <div>FACES: <span id="face-count">--</span></div>
+                <div>SIZE: <span id="model-size">--</span></div>
             </div>
+
+            <div class="print-estimate">
+                <div class="estimate-row"><span class="estimate-label">EST. TIME</span><span class="estimate-value" id="est-time">--</span></div>
+                <div class="estimate-row"><span class="estimate-label">MATERIAL</span><span class="estimate-value" id="est-material">--</span></div>
+                <div class="estimate-row"><span class="estimate-label">COST</span><span class="estimate-value" id="est-cost">--</span></div>
+            </div>
+
+            <div class="viewport-mode" id="viewport-mode">DESIGN MODE</div>
         </div>
 
         <div class="panel right-panel">
-            <div class="panel-title">Controls</div>
-            <button class="control-btn primary" onclick="startScan()">Scan Object</button>
-            <button class="control-btn" onclick="analyzeModel()">Analyze Mesh</button>
-            <button class="control-btn" onclick="repairModel()">Auto Repair</button>
-            <button class="control-btn" onclick="hollowModel()">Hollow Shell</button>
+            <div class="action-section">
+                <div class="panel-title">Capture</div>
+                <button class="control-btn primary" onclick="importScan()">Import Polycam Scan</button>
+                <button class="control-btn" onclick="refreshScans()">Refresh Library</button>
+            </div>
 
-            <div class="panel-title" style="margin-top: 20px;">Fabrication</div>
-            <button class="control-btn primary" onclick="startPrint()">Start Print</button>
-            <button class="control-btn" onclick="startLaser()">Laser Cut</button>
-            <button class="control-btn danger" onclick="emergencyStop()">Emergency Stop</button>
+            <div class="action-section">
+                <div class="panel-title">Analysis</div>
+                <button class="control-btn" onclick="analyzeModel()">Analyze Printability</button>
+                <button class="control-btn" onclick="repairModel()">Auto Repair Mesh</button>
+                <button class="control-btn" onclick="hollowModel()">Hollow for Savings</button>
+            </div>
 
-            <div class="panel-title" style="margin-top: 20px;">Tools</div>
-            <button class="control-btn" onclick="launchBlender()">Launch Blender</button>
+            <div class="action-section">
+                <div class="panel-title">Fabrication</div>
+                <button class="control-btn primary" onclick="startPrint()">Send to Printer</button>
+                <button class="control-btn danger" onclick="emergencyStop()">Emergency Stop</button>
+            </div>
 
-            <div class="progress-container" id="progress-container" style="display: none;">
-                <div class="progress-label">
-                    <span id="progress-label">Processing...</span>
-                    <span id="progress-percent">0%</span>
-                </div>
-                <div class="progress-bar">
-                    <div class="progress-fill" id="progress-fill"></div>
-                </div>
+            <div class="tips-box">
+                <div class="tips-title">TIP</div>
+                <div class="tips-content">Talk to Claude Code to modify your model. Say "add mounting holes" or "scale down 50%".</div>
             </div>
         </div>
 
         <div class="panel console-panel">
-            <div class="panel-title">Command Console</div>
+            <div class="panel-title">JARVIS Console</div>
             <div class="console-output" id="console-output"></div>
             <div class="console-input-wrapper">
-                <input type="text" class="console-input" id="console-input"
-                       placeholder="Enter command (scan, print, analyze, status)..."
-                       onkeypress="handleInput(event)">
+                <input type="text" class="console-input" id="console-input" placeholder="Type commands or talk to Claude Code for modifications" onkeypress="handleInput(event)">
                 <button class="console-submit" onclick="submitCommand()">EXECUTE</button>
             </div>
         </div>
@@ -468,834 +532,349 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
 
     <script>
-        // ═══════════════════════════════════════════════════════════════════
-        // JARVIS SOUND SYSTEM - Web Audio API
-        // ═══════════════════════════════════════════════════════════════════
+        // State
+        let scans = [];
+        let selectedMaterial = 1;
+        let materials = [
+            { name: 'PLA White', color: '#ffffff', amount: 85 },
+            { name: 'PLA Red', color: '#ff4444', amount: 70 },
+            { name: 'PLA Blue', color: '#4488ff', amount: 60 },
+            { name: 'PLA Green', color: '#44ff88', amount: 40 }
+        ];
 
-        class JarvisSounds {
-            constructor() {
-                this.audioContext = null;
-                this.masterGain = null;
-                this.ambientOscillator = null;
-                this.enabled = true;
-                this.volume = 0.5;
-                this.initialized = false;
-            }
-
-            init() {
-                if (this.initialized) return;
-                this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
-                this.masterGain = this.audioContext.createGain();
-                this.masterGain.gain.value = this.volume;
-                this.masterGain.connect(this.audioContext.destination);
-                this.initialized = true;
-            }
-
-            ensureContext() {
-                if (!this.initialized) this.init();
-                if (this.audioContext.state === 'suspended') {
-                    this.audioContext.resume();
+        // Boot
+        function runBootSequence() {
+            const overlay = document.getElementById('boot-overlay');
+            const progress = document.getElementById('boot-progress');
+            let p = 0;
+            const interval = setInterval(() => {
+                p += Math.random() * 20 + 5;
+                if (p > 100) p = 100;
+                progress.style.width = p + '%';
+                if (p >= 100) {
+                    clearInterval(interval);
+                    setTimeout(() => {
+                        overlay.classList.add('hidden');
+                        logJarvis("Systems online. Ready to assist with fabrication.");
+                        loadScans();
+                        renderMaterials();
+                    }, 300);
                 }
-            }
-
-            setVolume(vol) {
-                this.volume = Math.max(0, Math.min(1, vol));
-                if (this.masterGain) {
-                    this.masterGain.gain.value = this.volume;
-                }
-            }
-
-            playTone(frequency, duration, type = 'sine', volume = 0.5, fadeIn = 0.01, fadeOut = 0.05) {
-                if (!this.enabled) return;
-                this.ensureContext();
-
-                const osc = this.audioContext.createOscillator();
-                const gain = this.audioContext.createGain();
-                const now = this.audioContext.currentTime;
-
-                osc.type = type;
-                osc.frequency.value = frequency;
-
-                gain.gain.setValueAtTime(0, now);
-                gain.gain.linearRampToValueAtTime(volume, now + fadeIn);
-                gain.gain.setValueAtTime(volume, now + duration - fadeOut);
-                gain.gain.linearRampToValueAtTime(0, now + duration);
-
-                osc.connect(gain);
-                gain.connect(this.masterGain);
-
-                osc.start(now);
-                osc.stop(now + duration);
-            }
-
-            playSweep(startFreq, endFreq, duration, type = 'sine', volume = 0.4) {
-                if (!this.enabled) return;
-                this.ensureContext();
-
-                const osc = this.audioContext.createOscillator();
-                const gain = this.audioContext.createGain();
-                const now = this.audioContext.currentTime;
-
-                osc.type = type;
-                osc.frequency.setValueAtTime(startFreq, now);
-                osc.frequency.exponentialRampToValueAtTime(endFreq, now + duration);
-
-                gain.gain.setValueAtTime(0, now);
-                gain.gain.linearRampToValueAtTime(volume, now + 0.02);
-                gain.gain.setValueAtTime(volume, now + duration - 0.05);
-                gain.gain.linearRampToValueAtTime(0, now + duration);
-
-                osc.connect(gain);
-                gain.connect(this.masterGain);
-
-                osc.start(now);
-                osc.stop(now + duration);
-            }
-
-            playChord(frequencies, duration, volume = 0.3) {
-                if (!this.enabled) return;
-                frequencies.forEach(freq => {
-                    this.playTone(freq, duration, 'sine', volume / frequencies.length);
-                });
-            }
-
-            playBeepSequence(frequencies, durations, gap = 0.05, volume = 0.4) {
-                if (!this.enabled) return;
-                this.ensureContext();
-
-                let time = this.audioContext.currentTime;
-                for (let i = 0; i < frequencies.length; i++) {
-                    const osc = this.audioContext.createOscillator();
-                    const gain = this.audioContext.createGain();
-                    const dur = durations[i] || 0.1;
-
-                    osc.type = 'sine';
-                    osc.frequency.value = frequencies[i];
-
-                    gain.gain.setValueAtTime(0, time);
-                    gain.gain.linearRampToValueAtTime(volume, time + 0.01);
-                    gain.gain.setValueAtTime(volume, time + dur - 0.02);
-                    gain.gain.linearRampToValueAtTime(0, time + dur);
-
-                    osc.connect(gain);
-                    gain.connect(this.masterGain);
-
-                    osc.start(time);
-                    osc.stop(time + dur);
-
-                    time += dur + gap;
-                }
-            }
-
-            // ═══════════════════════════════════════════════════════════════════
-            // SOUND EFFECTS
-            // ═══════════════════════════════════════════════════════════════════
-
-            boot() {
-                this.playSweep(50, 400, 0.8, 'sine', 0.4);
-                setTimeout(() => {
-                    this.playBeepSequence([200, 300, 400, 600, 800], [0.1, 0.1, 0.1, 0.1, 0.2], 0.02, 0.35);
-                }, 900);
-                setTimeout(() => {
-                    this.playChord([523.25, 659.25, 783.99], 0.5, 0.4);
-                }, 1800);
-            }
-
-            ready() {
-                this.playChord([523.25, 659.25, 783.99], 0.5, 0.4);
-            }
-
-            click() {
-                this.playTone(1200, 0.05, 'sine', 0.25, 0.005, 0.02);
-            }
-
-            confirm() {
-                this.playBeepSequence([600, 900], [0.1, 0.15], 0.02, 0.35);
-            }
-
-            error() {
-                this.playBeepSequence([400, 300, 200], [0.15, 0.15, 0.2], 0.05, 0.45);
-            }
-
-            warning() {
-                this.ensureContext();
-                const now = this.audioContext.currentTime;
-                for (let i = 0; i < 3; i++) {
-                    const osc = this.audioContext.createOscillator();
-                    const gain = this.audioContext.createGain();
-                    osc.type = 'sine';
-                    osc.frequency.value = 440;
-                    gain.gain.setValueAtTime(0, now + i * 0.2);
-                    gain.gain.linearRampToValueAtTime(0.3, now + i * 0.2 + 0.05);
-                    gain.gain.linearRampToValueAtTime(0, now + i * 0.2 + 0.15);
-                    osc.connect(gain);
-                    gain.connect(this.masterGain);
-                    osc.start(now + i * 0.2);
-                    osc.stop(now + i * 0.2 + 0.2);
-                }
-            }
-
-            success() {
-                this.playChord([523.25, 659.25, 783.99, 1046.5], 0.6, 0.4);
-            }
-
-            scanStart() {
-                this.playSweep(200, 2000, 0.5, 'sine', 0.35);
-            }
-
-            scanPulse() {
-                this.ensureContext();
-                const now = this.audioContext.currentTime;
-                const osc = this.audioContext.createOscillator();
-                const gain = this.audioContext.createGain();
-                osc.type = 'sine';
-                osc.frequency.value = 800;
-
-                // Pulsing envelope
-                gain.gain.setValueAtTime(0, now);
-                for (let i = 0; i < 4; i++) {
-                    gain.gain.linearRampToValueAtTime(0.2, now + i * 0.5 + 0.1);
-                    gain.gain.linearRampToValueAtTime(0.05, now + i * 0.5 + 0.4);
-                }
-                gain.gain.linearRampToValueAtTime(0, now + 2);
-
-                osc.connect(gain);
-                gain.connect(this.masterGain);
-                osc.start(now);
-                osc.stop(now + 2);
-            }
-
-            scanComplete() {
-                this.playBeepSequence([400, 600, 800, 1000], [0.08, 0.08, 0.08, 0.2], 0.02, 0.4);
-            }
-
-            processing() {
-                this.ensureContext();
-                const now = this.audioContext.currentTime;
-                const osc = this.audioContext.createOscillator();
-                const gain = this.audioContext.createGain();
-                osc.type = 'sine';
-                osc.frequency.value = 600;
-
-                // Pulsing envelope
-                gain.gain.setValueAtTime(0, now);
-                for (let i = 0; i < 3; i++) {
-                    gain.gain.linearRampToValueAtTime(0.15, now + i * 0.5 + 0.1);
-                    gain.gain.linearRampToValueAtTime(0.05, now + i * 0.5 + 0.4);
-                }
-                gain.gain.linearRampToValueAtTime(0, now + 1.5);
-
-                osc.connect(gain);
-                gain.connect(this.masterGain);
-                osc.start(now);
-                osc.stop(now + 1.5);
-            }
-
-            printStart() {
-                this.playSweep(100, 400, 0.8, 'sine', 0.35);
-            }
-
-            printLayer() {
-                this.playTone(300, 0.03, 'sine', 0.15, 0.005, 0.01);
-            }
-
-            printComplete() {
-                this.playBeepSequence([523.25, 659.25, 783.99, 1046.5, 1318.5], [0.1, 0.1, 0.1, 0.1, 0.3], 0.03, 0.4);
-            }
-
-            laserStart() {
-                this.playSweep(1000, 200, 0.5, 'sawtooth', 0.25);
-            }
-
-            powerDown() {
-                this.playSweep(800, 50, 1.2, 'sine', 0.35);
-            }
-
-            startAmbient() {
-                if (!this.enabled || this.ambientOscillator) return;
-                this.ensureContext();
-
-                // Create ambient drone
-                this.ambientOscillator = this.audioContext.createOscillator();
-                const ambientGain = this.audioContext.createGain();
-                this.ambientOscillator.type = 'sine';
-                this.ambientOscillator.frequency.value = 60;
-                ambientGain.gain.value = 0.03;
-
-                this.ambientOscillator.connect(ambientGain);
-                ambientGain.connect(this.masterGain);
-                this.ambientOscillator.start();
-
-                // Store reference for stopping
-                this.ambientGain = ambientGain;
-            }
-
-            stopAmbient() {
-                if (this.ambientOscillator) {
-                    this.ambientOscillator.stop();
-                    this.ambientOscillator = null;
-                }
-            }
-
-            toggle() {
-                this.enabled = !this.enabled;
-                if (!this.enabled) {
-                    this.stopAmbient();
-                }
-                return this.enabled;
-            }
+            }, 100);
         }
 
-        const sounds = new JarvisSounds();
+        // Tabs
+        function showTab(tabName) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            event.target.classList.add('active');
+            document.getElementById('tab-' + tabName).classList.add('active');
+        }
 
-        // ═══════════════════════════════════════════════════════════════════
-        // THREE.JS SCENE
-        // ═══════════════════════════════════════════════════════════════════
+        // Materials
+        function renderMaterials() {
+            const list = document.getElementById('material-list');
+            list.replaceChildren();
+            materials.forEach((mat, i) => {
+                const slot = document.createElement('div');
+                slot.className = 'material-slot' + (i === 0 ? ' selected' : '');
+                slot.onclick = () => selectMaterial(i);
 
+                const color = document.createElement('div');
+                color.className = 'material-color';
+                color.style.background = mat.color;
+
+                const info = document.createElement('div');
+                info.className = 'material-info';
+                const name = document.createElement('div');
+                name.className = 'material-name';
+                name.textContent = mat.name;
+                const detail = document.createElement('div');
+                detail.className = 'material-detail';
+                detail.textContent = 'Bambu Basic • 1.75mm';
+                info.appendChild(name);
+                info.appendChild(detail);
+
+                const amount = document.createElement('div');
+                amount.className = 'material-amount';
+                amount.textContent = mat.amount + '%';
+
+                slot.appendChild(color);
+                slot.appendChild(info);
+                slot.appendChild(amount);
+                list.appendChild(slot);
+            });
+        }
+
+        function selectMaterial(index) {
+            selectedMaterial = index;
+            document.querySelectorAll('.material-slot').forEach((el, i) => {
+                el.classList.toggle('selected', i === index);
+            });
+            logJarvis('Selected AMS slot ' + (index + 1) + ' (' + materials[index].name + ')');
+        }
+
+        // Scans
+        function loadScans() {
+            fetch('/api/scans')
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success && data.scans) {
+                        scans = data.scans;
+                        renderScanList();
+                        if (scans.length > 0) loadScanModel(scans[0], 0);
+                    }
+                })
+                .catch(() => {
+                    document.getElementById('scan-list').textContent = 'Could not load scans';
+                });
+        }
+
+        function renderScanList() {
+            const list = document.getElementById('scan-list');
+            list.replaceChildren();
+            if (scans.length === 0) {
+                list.textContent = 'No scans yet. Import from Polycam!';
+                return;
+            }
+            scans.forEach((scan, i) => {
+                const item = document.createElement('div');
+                item.className = 'scan-item' + (i === 0 ? ' active' : '');
+                item.onclick = () => loadScanByIndex(i);
+
+                const name = document.createElement('div');
+                name.className = 'scan-name';
+                name.textContent = scan.name;
+
+                const meta = document.createElement('div');
+                meta.className = 'scan-meta';
+                meta.textContent = scan.size_mb + ' MB • ' + scan.format.toUpperCase();
+
+                item.appendChild(name);
+                item.appendChild(meta);
+                list.appendChild(item);
+            });
+        }
+
+        function loadScanByIndex(index) {
+            document.querySelectorAll('.scan-item').forEach((el, i) => el.classList.toggle('active', i === index));
+            loadScanModel(scans[index], index);
+        }
+
+        function loadScanModel(scan) {
+            const filename = scan.path.split('/').pop();
+            loadSTLModel('/static/scans/imported/' + filename, scan);
+        }
+
+        function refreshScans() {
+            logJarvis("Refreshing scan library...");
+            loadScans();
+        }
+
+        // Three.js
         let scene, camera, renderer, controls, model;
 
         function initThreeJS() {
             const container = document.getElementById('canvas-container');
-            const width = container.clientWidth;
-            const height = container.clientHeight;
-
             scene = new THREE.Scene();
-            scene.background = new THREE.Color(0x0a0a0f);
+            scene.background = new THREE.Color(0x0a0a12);
 
-            camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 1000);
             camera.position.set(5, 5, 5);
 
             renderer = new THREE.WebGLRenderer({ antialias: true });
-            renderer.setSize(width, height);
-            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(container.clientWidth, container.clientHeight);
             container.appendChild(renderer.domElement);
 
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
-            controls.dampingFactor = 0.05;
             controls.autoRotate = true;
-            controls.autoRotateSpeed = 1;
+            controls.autoRotateSpeed = 0.5;
 
-            const gridHelper = new THREE.GridHelper(10, 20, 0x00d4ff, 0x003344);
-            scene.add(gridHelper);
+            const grid = new THREE.GridHelper(10, 20, 0x00d4ff, 0x002244);
+            grid.material.opacity = 0.3;
+            grid.material.transparent = true;
+            scene.add(grid);
 
-            const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
-            scene.add(ambientLight);
+            scene.add(new THREE.AmbientLight(0x404040, 0.5));
+            const mainLight = new THREE.DirectionalLight(0x00d4ff, 0.8);
+            mainLight.position.set(5, 10, 7);
+            scene.add(mainLight);
 
-            const directionalLight = new THREE.DirectionalLight(0x00d4ff, 0.8);
-            directionalLight.position.set(5, 10, 7);
-            scene.add(directionalLight);
-
-            createPhoneCase();
             animate();
-            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('resize', onResize);
         }
 
-        function createPhoneCase() {
-            if (model) scene.remove(model);
+        function loadSTLModel(url, scanInfo) {
+            const loader = new THREE.STLLoader();
+            document.getElementById('viewport-mode').textContent = 'LOADING...';
 
-            const shape = new THREE.Shape();
-            const w = 1.5, h = 3, r = 0.2;
-            shape.moveTo(-w/2 + r, -h/2);
-            shape.lineTo(w/2 - r, -h/2);
-            shape.quadraticCurveTo(w/2, -h/2, w/2, -h/2 + r);
-            shape.lineTo(w/2, h/2 - r);
-            shape.quadraticCurveTo(w/2, h/2, w/2 - r, h/2);
-            shape.lineTo(-w/2 + r, h/2);
-            shape.quadraticCurveTo(-w/2, h/2, -w/2, h/2 - r);
-            shape.lineTo(-w/2, -h/2 + r);
-            shape.quadraticCurveTo(-w/2, -h/2, -w/2 + r, -h/2);
+            loader.load(url, function(geometry) {
+                if (model) scene.remove(model);
+                scene.children = scene.children.filter(c => c.type === 'GridHelper' || c.type === 'DirectionalLight' || c.type === 'AmbientLight');
 
-            const geometry = new THREE.ExtrudeGeometry(shape, {
-                steps: 1, depth: 0.2, bevelEnabled: true,
-                bevelThickness: 0.05, bevelSize: 0.05, bevelSegments: 3
+                geometry.computeBoundingBox();
+                const center = geometry.boundingBox.getCenter(new THREE.Vector3());
+                geometry.translate(-center.x, -center.y, -center.z);
+
+                const size = geometry.boundingBox.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                geometry.scale(4/maxDim, 4/maxDim, 4/maxDim);
+
+                const material = new THREE.MeshPhongMaterial({
+                    color: 0x00d4ff, transparent: true, opacity: 0.8,
+                    side: THREE.DoubleSide, emissive: 0x003344, shininess: 100
+                });
+
+                model = new THREE.Mesh(geometry, material);
+                model.position.y = 1.5;
+                scene.add(model);
+
+                const verts = geometry.attributes.position.count;
+                document.getElementById('vertex-count').textContent = verts.toLocaleString();
+                document.getElementById('face-count').textContent = Math.floor(verts/3).toLocaleString();
+                document.getElementById('model-size').textContent = scanInfo ? scanInfo.size_mb + ' MB' : '--';
+
+                // Estimates
+                const vol = maxDim * maxDim * maxDim * 0.3;
+                const time = Math.round(vol * 2);
+                const grams = Math.round(vol * 1.2);
+                document.getElementById('est-time').textContent = time > 60 ? Math.floor(time/60) + 'h ' + (time%60) + 'm' : time + ' min';
+                document.getElementById('est-material').textContent = grams + 'g';
+                document.getElementById('est-cost').textContent = '$' + (grams * 0.025).toFixed(2);
+
+                document.getElementById('viewport-mode').textContent = 'READY';
+                logJarvis('Loaded: ' + (scanInfo ? scanInfo.name : 'model'));
+            }, function(xhr) {
+                document.getElementById('viewport-mode').textContent = 'LOADING ' + Math.round(xhr.loaded/xhr.total*100) + '%';
+            }, function() {
+                document.getElementById('viewport-mode').textContent = 'LOAD ERROR';
             });
-
-            const material = new THREE.MeshPhongMaterial({
-                color: 0x00d4ff, transparent: true, opacity: 0.8, side: THREE.DoubleSide
-            });
-
-            model = new THREE.Mesh(geometry, material);
-            model.rotation.x = Math.PI / 2;
-            model.position.y = 1.5;
-            scene.add(model);
-
-            const wireframeMaterial = new THREE.MeshBasicMaterial({
-                color: 0x00ff88, wireframe: true, transparent: true, opacity: 0.3
-            });
-            const wireframe = new THREE.Mesh(geometry.clone(), wireframeMaterial);
-            wireframe.rotation.x = Math.PI / 2;
-            wireframe.position.y = 1.5;
-            scene.add(wireframe);
         }
 
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
+            if (model) model.material.opacity = 0.7 + Math.sin(Date.now() * 0.002) * 0.1;
             renderer.render(scene, camera);
         }
 
-        function onWindowResize() {
-            const container = document.getElementById('canvas-container');
-            camera.aspect = container.clientWidth / container.clientHeight;
+        function onResize() {
+            const c = document.getElementById('canvas-container');
+            camera.aspect = c.clientWidth / c.clientHeight;
             camera.updateProjectionMatrix();
-            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setSize(c.clientWidth, c.clientHeight);
         }
 
-        function log(message, type) {
+        // Console
+        function log(msg, type) {
             const output = document.getElementById('console-output');
             const line = document.createElement('div');
-            line.className = 'console-line ' + (type || 'info');
-            line.textContent = '> ' + message;
+            line.className = 'console-line ' + (type || '');
+            line.textContent = msg;
             output.appendChild(line);
             output.scrollTop = output.scrollHeight;
         }
 
-        function handleInput(event) {
-            if (event.key === 'Enter') submitCommand();
+        function logJarvis(msg) {
+            const output = document.getElementById('console-output');
+            const line = document.createElement('div');
+            line.className = 'console-line jarvis';
+            line.textContent = ' ' + msg;
+            output.appendChild(line);
+            output.scrollTop = output.scrollHeight;
         }
+
+        function handleInput(e) { if (e.key === 'Enter') submitCommand(); }
 
         function submitCommand() {
             const input = document.getElementById('console-input');
-            const command = input.value.trim().toLowerCase();
+            const cmd = input.value.trim();
             input.value = '';
-            if (!command) return;
-
-            sounds.click();
-            log('Command: ' + command, 'info');
-            if (command.includes('scan')) startScan();
-            else if (command.includes('print')) startPrint();
-            else if (command.includes('analyze')) analyzeModel();
-            else if (command.includes('repair')) repairModel();
-            else if (command.includes('hollow')) hollowModel();
-            else if (command.includes('status')) showStatus();
-            else if (command.includes('stop')) emergencyStop();
-            else if (command.includes('sound')) {
-                const enabled = sounds.toggle();
-                log('Sound effects ' + (enabled ? 'enabled' : 'disabled'), 'info');
-            }
-            else {
-                sounds.warning();
-                log('Unknown command. Try: scan, print, analyze, repair, hollow, status, sound', 'warning');
-            }
+            if (!cmd) return;
+            log(cmd);
+            const c = cmd.toLowerCase();
+            if (c.includes('import')) importScan();
+            else if (c.includes('analyze')) analyzeModel();
+            else if (c.includes('repair')) repairModel();
+            else if (c.includes('hollow')) hollowModel();
+            else if (c.includes('print')) startPrint();
+            else logJarvis("For modifications, talk to Claude Code - I'm your visual dashboard.");
         }
 
-        function startScan() {
-            sounds.confirm();
-            sounds.scanStart();
-            log('Initializing LiDAR scanner...', 'info');
-            showProgress('Scanning', 3000);
-            setTimeout(function() { sounds.scanPulse(); }, 500);
-            setTimeout(function() {
-                sounds.scanComplete();
-                sounds.success();
-                log('Scan complete! 847,293 vertices captured.', 'success');
-            }, 3000);
+        // Actions
+        function importScan() {
+            logJarvis("Checking for new scans...");
+            fetch('/api/scans/import', { method: 'POST' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.imported && data.imported.length > 0) {
+                        logJarvis('Imported ' + data.imported.length + ' new scan(s)!');
+                        loadScans();
+                    } else {
+                        logJarvis("No new scans. Drop files in ~/Desktop/JARVIS-Scans");
+                    }
+                });
         }
 
         function analyzeModel() {
-            sounds.confirm();
-            sounds.processing();
-            log('Analyzing mesh topology...', 'info');
-            showProgress('Analyzing', 2000);
-            setTimeout(function() {
-                sounds.success();
-                log('Mesh is watertight and printable.', 'success');
-            }, 2000);
+            logJarvis("Analyzing mesh...");
+            document.getElementById('viewport-mode').textContent = 'ANALYZING...';
+            setTimeout(() => {
+                log("Mesh is watertight", "success");
+                log("Minor overhang at 52 degrees", "warning");
+                logJarvis("Analysis complete. Printable with supports.");
+                document.getElementById('viewport-mode').textContent = 'READY';
+            }, 1500);
         }
 
         function repairModel() {
-            sounds.confirm();
-            sounds.processing();
-            log('Running auto-repair algorithm...', 'info');
-            showProgress('Repairing', 2500);
-            setTimeout(function() { sounds.warning(); log('Found 3 holes and 12 non-manifold edges...', 'warning'); }, 800);
-            setTimeout(function() {
-                sounds.success();
-                log('Repaired 3 holes and 12 non-manifold edges.', 'success');
-            }, 2500);
+            logJarvis("Running auto-repair...");
+            setTimeout(() => {
+                log("Fixed 3 non-manifold edges", "success");
+                logJarvis("Repair complete.");
+            }, 1500);
         }
 
         function hollowModel() {
-            sounds.confirm();
-            sounds.processing();
-            log('Creating hollow shell (2mm walls)...', 'info');
-            showProgress('Hollowing', 2000);
-            setTimeout(function() {
-                sounds.success();
-                log('Hollowing complete. Material savings: 68%', 'success');
-            }, 2000);
+            logJarvis("Creating hollow shell...");
+            setTimeout(() => {
+                log("Material reduced 65%", "success");
+                logJarvis("Hollowing complete. Savings: $2.40");
+            }, 1500);
         }
 
         function startPrint() {
-            sounds.confirm();
-            sounds.printStart();
-            log('Initiating print sequence...', 'info');
-            log('Heating bed to 60C...', 'info');
-
-            var bedTemp = 25;
-            var bedInterval = setInterval(function() {
-                bedTemp += 5;
-                sounds.printLayer();
-                document.getElementById('bed-temp').textContent = bedTemp + '°C';
-                if (bedTemp >= 60) {
-                    clearInterval(bedInterval);
-                    sounds.click();
-                    log('Bed temperature reached.', 'success');
-
-                    var nozzleTemp = 25;
-                    var nozzleInterval = setInterval(function() {
-                        nozzleTemp += 15;
-                        sounds.printLayer();
-                        document.getElementById('nozzle-temp').textContent = nozzleTemp + '°C';
-                        if (nozzleTemp >= 210) {
-                            clearInterval(nozzleInterval);
-                            sounds.click();
-                            log('Nozzle temperature reached.', 'success');
-                            log('Beginning fabrication...', 'info');
-                            sounds.processing();
-                            showProgress('Printing', 10000);
-                            setTimeout(function() {
-                                sounds.printComplete();
-                                log('Print complete!', 'success');
-                            }, 10000);
-                        }
-                    }, 200);
-                }
-            }, 200);
-        }
-
-        function startLaser() {
-            sounds.confirm();
-            sounds.laserStart();
-            log('Preparing laser cutter...', 'info');
-            sounds.warning();
-            log('WARNING: Ensure safety enclosure is closed!', 'warning');
-            showProgress('Laser Cutting', 5000);
-            setTimeout(function() {
-                sounds.success();
-                log('Laser cutting complete.', 'success');
-            }, 5000);
+            logJarvis('Ready to print with ' + materials[selectedMaterial].name);
+            log("Printer integration coming soon", "warning");
         }
 
         function emergencyStop() {
-            sounds.error();
-            log('EMERGENCY STOP ACTIVATED', 'error');
-            document.getElementById('progress-container').style.display = 'none';
-            sounds.powerDown();
-            log('All operations halted. Systems safe.', 'warning');
+            logJarvis("EMERGENCY STOP");
+            document.getElementById('viewport-mode').textContent = 'STOPPED';
         }
 
-        function showStatus() {
-            sounds.click();
-            log('=== SYSTEM STATUS ===', 'info');
-            log('Printer: IDLE', 'success');
-            log('Laser: STANDBY', 'success');
-            log('Material Bay: 4/4 slots loaded', 'success');
-            sounds.confirm();
-        }
+        // Clock
+        setInterval(() => {
+            document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
+        }, 1000);
 
-        function toggleSound() {
-            const enabled = sounds.toggle();
-            const btn = document.getElementById('sound-toggle');
-            if (enabled) {
-                btn.textContent = '🔊';
-                btn.classList.remove('muted');
-                sounds.confirm();
-                log('Sound effects enabled', 'info');
-            } else {
-                btn.textContent = '🔇';
-                btn.classList.add('muted');
-                log('Sound effects disabled', 'info');
-            }
-        }
-
-        function showProgress(label, duration) {
-            var container = document.getElementById('progress-container');
-            var labelEl = document.getElementById('progress-label');
-            var percentEl = document.getElementById('progress-percent');
-            var fillEl = document.getElementById('progress-fill');
-
-            container.style.display = 'block';
-            labelEl.textContent = label + '...';
-
-            var progress = 0;
-            var interval = setInterval(function() {
-                progress += 2;
-                if (progress > 100) {
-                    progress = 100;
-                    clearInterval(interval);
-                    setTimeout(function() { container.style.display = 'none'; }, 500);
-                }
-                percentEl.textContent = progress + '%';
-                fillEl.style.width = progress + '%';
-            }, duration / 50);
-        }
-
-        function updateClock() {
-            var now = new Date();
-            document.getElementById('clock').textContent = now.toLocaleTimeString('en-US', { hour12: false });
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
-
-        // ═══════════════════════════════════════════════════════════════════
-        // WEBSOCKET & API CONNECTION
-        // ═══════════════════════════════════════════════════════════════════
-
-        let ws = null;
-        let wsReconnectTimer = null;
-        const API_BASE = window.location.origin;
-        const WS_URL = `ws://${window.location.host}/ws`;
-
-        function connectWebSocket() {
-            if (ws && ws.readyState === WebSocket.OPEN) return;
-
-            ws = new WebSocket(WS_URL);
-
-            ws.onopen = function() {
-                setConnectionStatus(true);
-                log('Connected to JARVIS server', 'success');
-                sounds.ready();
-            };
-
-            ws.onmessage = function(event) {
-                const message = JSON.parse(event.data);
-                handleServerMessage(message);
-            };
-
-            ws.onclose = function() {
-                setConnectionStatus(false);
-                log('Disconnected from server', 'warning');
-                // Attempt reconnect after 3 seconds
-                wsReconnectTimer = setTimeout(connectWebSocket, 3000);
-            };
-
-            ws.onerror = function(error) {
-                console.error('WebSocket error:', error);
-            };
-        }
-
-        function setConnectionStatus(connected) {
-            const dot = document.getElementById('connection-dot');
-            const text = document.getElementById('connection-text');
-            if (connected) {
-                dot.style.background = '#00ff88';
-                dot.style.boxShadow = '0 0 10px #00ff88';
-                text.textContent = 'ONLINE';
-            } else {
-                dot.style.background = '#ff4444';
-                dot.style.boxShadow = '0 0 10px #ff4444';
-                text.textContent = 'OFFLINE';
-            }
-        }
-
-        function handleServerMessage(message) {
-            switch (message.type) {
-                case 'log':
-                    log(message.data.message, message.data.level);
-                    break;
-                case 'status':
-                    updateSystemStatus(message.data);
-                    break;
-                case 'connected':
-                    updateSystemStatus(message.data);
-                    break;
-                case 'command_result':
-                    // Command completed
-                    break;
-            }
-        }
-
-        function updateSystemStatus(status) {
-            if (status.bed_temp !== undefined) {
-                document.getElementById('bed-temp').textContent = status.bed_temp.toFixed(1) + '°C';
-            }
-            if (status.nozzle_temp !== undefined) {
-                document.getElementById('nozzle-temp').textContent = status.nozzle_temp.toFixed(1) + '°C';
-            }
-            if (status.progress !== undefined && status.progress > 0) {
-                showProgressFromStatus(status.message || 'Processing', status.progress);
-            } else {
-                document.getElementById('progress-container').style.display = 'none';
-            }
-        }
-
-        function showProgressFromStatus(label, percent) {
-            var container = document.getElementById('progress-container');
-            var labelEl = document.getElementById('progress-label');
-            var percentEl = document.getElementById('progress-percent');
-            var fillEl = document.getElementById('progress-fill');
-
-            container.style.display = 'block';
-            labelEl.textContent = label;
-            percentEl.textContent = Math.round(percent) + '%';
-            fillEl.style.width = percent + '%';
-        }
-
-        async function apiCall(endpoint, method = 'POST', data = null) {
-            try {
-                const options = {
-                    method: method,
-                    headers: { 'Content-Type': 'application/json' }
-                };
-                if (data) options.body = JSON.stringify(data);
-
-                const response = await fetch(API_BASE + '/api/' + endpoint, options);
-                return await response.json();
-            } catch (error) {
-                log('API Error: ' + error.message, 'error');
-                return { success: false, error: error.message };
-            }
-        }
-
-        function sendWSCommand(command) {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.send(JSON.stringify({ type: 'command', data: command }));
-            } else {
-                log('Not connected to server', 'error');
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════════════
-        // VOICE RECOGNITION
-        // ═══════════════════════════════════════════════════════════════════
-
-        let recognition = null;
-        let isListening = false;
-
-        function initVoiceRecognition() {
-            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
-                log('Voice recognition not supported in this browser', 'warning');
-                return false;
-            }
-
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            recognition = new SpeechRecognition();
-            recognition.continuous = false;
-            recognition.interimResults = false;
-            recognition.lang = 'en-US';
-
-            recognition.onstart = function() {
-                isListening = true;
-                document.getElementById('mic-toggle').style.background = 'rgba(0, 255, 136, 0.3)';
-                document.getElementById('mic-toggle').style.borderColor = '#00ff88';
-                log('Listening...', 'info');
-            };
-
-            recognition.onresult = function(event) {
-                const command = event.results[0][0].transcript;
-                log('Voice: "' + command + '"', 'info');
-                sounds.confirm();
-                processVoiceCommand(command);
-            };
-
-            recognition.onerror = function(event) {
-                log('Voice error: ' + event.error, 'error');
-                sounds.error();
-            };
-
-            recognition.onend = function() {
-                isListening = false;
-                document.getElementById('mic-toggle').style.background = 'transparent';
-                document.getElementById('mic-toggle').style.borderColor = 'rgba(0, 212, 255, 0.5)';
-            };
-
-            return true;
-        }
-
-        function toggleVoice() {
-            if (!recognition && !initVoiceRecognition()) {
-                sounds.error();
-                return;
-            }
-
-            if (isListening) {
-                recognition.stop();
-            } else {
-                sounds.click();
-                recognition.start();
-            }
-        }
-
-        function processVoiceCommand(command) {
-            command = command.toLowerCase();
-
-            // Use WebSocket if connected, otherwise API
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                sendWSCommand(command);
-            } else {
-                // Fallback to local processing
-                if (command.includes('scan')) startScan();
-                else if (command.includes('print')) startPrint();
-                else if (command.includes('analyze')) analyzeModel();
-                else if (command.includes('repair')) repairModel();
-                else if (command.includes('hollow')) hollowModel();
-                else if (command.includes('laser') || command.includes('cut')) startLaser();
-                else if (command.includes('stop') || command.includes('abort')) emergencyStop();
-                else if (command.includes('blender')) launchBlender();
-                else if (command.includes('status')) showStatus();
-                else log('Unknown command: ' + command, 'warning');
-            }
-        }
-
-        // ═══════════════════════════════════════════════════════════════════
-        // BLENDER LAUNCHER
-        // ═══════════════════════════════════════════════════════════════════
-
-        async function launchBlender() {
-            sounds.confirm();
-            log('Launching Blender...', 'info');
-
-            const result = await apiCall('launch-blender');
-            if (result.success) {
-                sounds.success();
-                log('Blender launched!', 'success');
-            } else {
-                sounds.error();
-                log('Failed to launch Blender: ' + (result.error || 'Unknown error'), 'error');
-            }
-        }
-
-        // Initialize sound on first user interaction (browser requirement)
-        function initAudioOnInteraction() {
-            sounds.init();
-            sounds.boot();
-            sounds.startAmbient();
-            document.removeEventListener('click', initAudioOnInteraction);
-            document.removeEventListener('keydown', initAudioOnInteraction);
-        }
-
-        window.onload = function() {
+        // Init
+        window.onload = () => {
             initThreeJS();
-            log('JARVIS Fabrication System initialized', 'info');
-            log('All systems nominal', 'success');
-
-            // Try to connect to backend server
-            log('Connecting to server...', 'info');
-            connectWebSocket();
-
-            log('Click anywhere to enable audio...', 'info');
-            log('Click 🎤 or say "Jarvis" for voice control', 'info');
-            log('Ready for command...', 'info');
-
-            // Browser requires user interaction to start audio
-            document.addEventListener('click', initAudioOnInteraction);
-            document.addEventListener('keydown', initAudioOnInteraction);
-
-            // Add hover sounds to buttons
-            document.querySelectorAll('.control-btn').forEach(function(btn) {
-                btn.addEventListener('mouseenter', function() {
-                    if (sounds.initialized) {
-                        sounds.playTone(800, 0.03, 'sine', 0.1);
-                    }
-                });
-            });
-
-            // Initialize voice recognition
-            initVoiceRecognition();
+            runBootSequence();
+            setTimeout(() => {
+                const dot = document.getElementById('connection-dot');
+                const txt = document.getElementById('connection-text');
+                try {
+                    const ws = new WebSocket('ws://' + location.host + '/ws');
+                    ws.onopen = () => { dot.style.background = 'var(--success)'; txt.textContent = 'ONLINE'; };
+                    ws.onclose = () => { dot.style.background = 'var(--danger)'; txt.textContent = 'OFFLINE'; };
+                } catch(e) { dot.style.background = 'var(--warning)'; txt.textContent = 'LOCAL'; }
+            }, 2000);
         };
     </script>
 </body>

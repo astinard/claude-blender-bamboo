@@ -1,1 +1,1 @@
-"""Test suite for Blender + Bamboo Labs integration."""
+"""Tests for Claude Fab Lab."""

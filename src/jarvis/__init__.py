@@ -1,28 +1,34 @@
-"""
-JARVIS - Just A Rather Very Intelligent System
+"""JARVIS module for Claude Fab Lab.
 
-Sci-fi voice and visual interface for the Fab Lab.
-"Good evening. Fabrication systems are online."
+Provides voice control and dashboard capabilities for print monitoring.
 """
 
-from .voice import JarvisVoice, speak, listen
-from .display import JarvisDisplay, show_banner, show_status
-from .sounds import JarvisSounds, SoundType, play, click, confirm, error, success
-from .core import Jarvis
+from src.jarvis.dashboard import (
+    Dashboard,
+    DashboardConfig,
+    PrintStatus,
+    TemperatureData,
+    PrintProgress,
+    create_dashboard,
+)
+from src.jarvis.voice_control import (
+    VoiceController,
+    VoiceCommand,
+    CommandCategory,
+    CommandResult,
+    create_voice_controller,
+)
 
 __all__ = [
-    "Jarvis",
-    "JarvisVoice",
-    "JarvisDisplay",
-    "JarvisSounds",
-    "SoundType",
-    "speak",
-    "listen",
-    "play",
-    "click",
-    "confirm",
-    "error",
-    "success",
-    "show_banner",
-    "show_status",
+    "Dashboard",
+    "DashboardConfig",
+    "PrintStatus",
+    "TemperatureData",
+    "PrintProgress",
+    "create_dashboard",
+    "VoiceController",
+    "VoiceCommand",
+    "CommandCategory",
+    "CommandResult",
+    "create_voice_controller",
 ]

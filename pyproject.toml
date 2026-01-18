@@ -3,46 +3,92 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "blender-bamboo"
-version = "0.1.0"
-description = "Automated pipeline connecting Blender to Bamboo Labs 3D printers"
+name = "claude-fab-lab"
+version = "0.4.0"
+description = "Claude Fab Lab - AI-powered 3D printing workflow with Blender and Bambu Labs integration"
 readme = "README.md"
-requires-python = ">=3.10"
 license = {text = "MIT"}
+requires-python = ">=3.10"
 authors = [
-    {name = "Claude Code", email = "noreply@anthropic.com"}
+    {name = "Claude Fab Lab Team"}
 ]
-keywords = ["blender", "3d-printing", "bamboo-labs", "automation"]
+keywords = ["3d-printing", "blender", "bambu-lab", "ai", "jarvis"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
-    "Topic :: Multimedia :: Graphics :: 3D Modeling",
 ]
 dependencies = [
-    "bambulabs-api>=0.1.0",
-    "paho-mqtt>=2.0.0",
-    "python-dotenv>=1.0.0",
+    "click>=8.1.0",
+    "rich>=13.0.0",
+    "httpx>=0.25.0",
+    "pydantic>=2.0.0",
+    "pydantic-settings>=2.0.0",
+    "fastapi>=0.109.0",
+    "uvicorn>=0.27.0",
+    "websockets>=12.0",
+    "paho-mqtt>=1.6.0",
+    "numpy>=1.24.0",
+    "trimesh>=4.0.0",
+    "stl-numpy>=1.0.0",
+    "sqlalchemy>=2.0.0",
+    "aiosqlite>=0.19.0",
 ]
 
 [project.optional-dependencies]
+ai = [
+    "openai>=1.0.0",
+    "httpx>=0.25.0",
+    "aiohttp>=3.9.0",
+]
+monitoring = [
+    "opencv-python>=4.8.0",
+    "pillow>=10.0.0",
+]
+ar = [
+    "qrcode>=7.4.0",
+    "pillow>=10.0.0",
+]
 dev = [
-    "pytest>=8.0.0",
-    "pytest-asyncio>=0.23.0",
+    "pytest>=7.4.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.1.0",
+    "ruff>=0.1.0",
+    "mypy>=1.5.0",
+]
+all = [
+    "claude-fab-lab[ai,monitoring,ar,dev]",
 ]
 
 [project.scripts]
-blender-bamboo = "src.pipeline.cli:main"
+fab = "src.cli.main:cli"
+jarvis = "src.jarvis.cli:jarvis_cli"
+
+[project.urls]
+Homepage = "https://github.com/claude-fab-lab/claude-fab-lab"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["src*", "config*"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+ignore = ["E501"]
 
 [tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
 asyncio_mode = "auto"
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true

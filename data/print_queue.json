@@ -1,0 +1,29 @@
+{
+  "jobs": {
+    "20085a24": {
+      "id": "20085a24",
+      "name": "dragon_stand",
+      "file_path": "output/dragon_stand.stl",
+      "status": "pending",
+      "priority": "normal",
+      "material": "pla",
+      "color": "white",
+      "ams_slot": null,
+      "quality": "normal",
+      "infill_percent": 15,
+      "supports_enabled": false,
+      "created_at": "2026-01-17T21:37:21.917897",
+      "started_at": null,
+      "completed_at": null,
+      "estimated_time_seconds": 0,
+      "progress_percent": 0,
+      "current_layer": 0,
+      "total_layers": 0,
+      "depends_on": [],
+      "notes": ""
+    }
+  },
+  "order": [
+    "20085a24"
+  ]
+}

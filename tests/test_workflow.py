@@ -1,45 +1,101 @@
-"""Tests for pipeline workflow module."""
+"""Tests for hybrid workflow module."""
 
 import pytest
-from pathlib import Path
-import sys
 
-# Add project root to path
-project_root = Path(__file__).parent.parent
-sys.path.insert(0, str(project_root))
-
-from src.pipeline.workflow import (
-    PrintWorkflow,
+from src.workflow.hybrid_ops import (
+    HybridWorkflow,
     WorkflowConfig,
-    WorkflowStage,
+    WorkflowStep,
     WorkflowResult,
+    StepType,
+    StepStatus,
+    create_workflow,
+    run_workflow,
 )
+
+
+class TestStepType:
+    """Tests for StepType enum."""
+
+    def test_step_type_values(self):
+        """Test step type values."""
+        assert StepType.PRINT_3D.value == "print_3d"
+        assert StepType.CNC_MILL.value == "cnc_mill"
+        assert StepType.LASER_CUT.value == "laser_cut"
+        assert StepType.ASSEMBLY.value == "assembly"
+
+
+class TestStepStatus:
+    """Tests for StepStatus enum."""
+
+    def test_status_values(self):
+        """Test status values."""
+        assert StepStatus.PENDING.value == "pending"
+        assert StepStatus.IN_PROGRESS.value == "in_progress"
+        assert StepStatus.COMPLETED.value == "completed"
+        assert StepStatus.FAILED.value == "failed"
+
+
+class TestWorkflowStep:
+    """Tests for WorkflowStep dataclass."""
+
+    def test_create_step(self):
+        """Test creating a step."""
+        step = WorkflowStep(
+            name="Print Base",
+            step_type=StepType.PRINT_3D,
+            description="Print the base component",
+            estimated_time_minutes=120,
+        )
+
+        assert step.name == "Print Base"
+        assert step.step_type == StepType.PRINT_3D
+        assert step.status == StepStatus.PENDING
+
+    def test_default_values(self):
+        """Test default step values."""
+        step = WorkflowStep("Step", StepType.CUSTOM)
+
+        assert step.dependencies == []
+        assert step.parameters == {}
+        assert step.result is None
+
+    def test_to_dict(self):
+        """Test step serialization."""
+        step = WorkflowStep("Test", StepType.ASSEMBLY)
+        d = step.to_dict()
+
+        assert d["name"] == "Test"
+        assert d["step_type"] == "assembly"
 
 
 class TestWorkflowConfig:
     """Tests for WorkflowConfig dataclass."""
 
     def test_default_config(self):
-        """Test default configuration values."""
+        """Test default configuration."""
         config = WorkflowConfig()
-        assert config.model_type == "cube"
-        assert config.export_format == "stl"
-        assert config.auto_start_print is False
-        assert config.monitor_print is True
+
+        assert config.name == "Hybrid Workflow"
+        assert config.stop_on_failure is True
+        assert config.parallel_execution is False
 
     def test_custom_config(self):
         """Test custom configuration."""
         config = WorkflowConfig(
-            model_type="sphere",
-            model_params={"radius": 15},
-            export_format="obj",
-            use_mock_printer=True,
-            auto_start_print=True
+            name="Custom Workflow",
+            stop_on_failure=False,
         )
-        assert config.model_type == "sphere"
-        assert config.model_params["radius"] == 15
-        assert config.export_format == "obj"
-        assert config.use_mock_printer is True
+
+        assert config.name == "Custom Workflow"
+        assert config.stop_on_failure is False
+
+    def test_to_dict(self):
+        """Test config serialization."""
+        config = WorkflowConfig(name="Test")
+        d = config.to_dict()
+
+        assert d["name"] == "Test"
 
 
 class TestWorkflowResult:
@@ -49,96 +105,362 @@ class TestWorkflowResult:
         """Test successful result."""
         result = WorkflowResult(
             success=True,
-            message="Test passed",
-            stage=WorkflowStage.COMPLETED
+            workflow_name="Test",
+            steps_completed=3,
+            total_steps=3,
         )
+
         assert result.success is True
-        assert result.stage == WorkflowStage.COMPLETED
+        assert result.steps_completed == 3
 
     def test_failure_result(self):
         """Test failure result."""
         result = WorkflowResult(
             success=False,
-            message="Test failed",
-            stage=WorkflowStage.FAILED
+            error_message="Step failed",
         )
+
         assert result.success is False
-        assert result.stage == WorkflowStage.FAILED
+        assert result.error_message == "Step failed"
+
+    def test_to_dict(self):
+        """Test result serialization."""
+        result = WorkflowResult(success=True)
+        d = result.to_dict()
+
+        assert d["success"] is True
 
 
-class TestPrintWorkflow:
-    """Tests for PrintWorkflow class."""
+class TestHybridWorkflow:
+    """Tests for HybridWorkflow class."""
 
-    def test_workflow_initialization(self):
+    @pytest.fixture
+    def workflow(self):
+        """Create a hybrid workflow."""
+        return HybridWorkflow()
+
+    def test_init(self, workflow):
         """Test workflow initialization."""
-        config = WorkflowConfig(use_mock_printer=True)
-        workflow = PrintWorkflow(config)
-        assert workflow.current_stage == WorkflowStage.IDLE
+        assert workflow.config is not None
+        assert len(workflow.steps) == 0
 
-    def test_workflow_with_progress_callback(self):
-        """Test workflow with progress callback."""
-        stages_seen = []
+    def test_init_custom_config(self):
+        """Test workflow with custom config."""
+        config = WorkflowConfig(name="Custom")
+        workflow = HybridWorkflow(config=config)
 
-        def callback(stage, message):
-            stages_seen.append(stage)
+        assert workflow.config.name == "Custom"
 
-        config = WorkflowConfig(use_mock_printer=True)
-        workflow = PrintWorkflow(config, progress_callback=callback)
 
-        # This would require Blender to be installed
-        # Just test that callback is set
-        assert workflow.progress_callback is not None
+class TestStepManagement:
+    """Tests for step management."""
 
-    def test_validate_model_missing_file(self):
-        """Test validation of missing file."""
-        config = WorkflowConfig(use_mock_printer=True)
-        workflow = PrintWorkflow(config)
+    @pytest.fixture
+    def workflow(self):
+        """Create a hybrid workflow."""
+        return HybridWorkflow()
 
-        result = workflow.validate_model(Path("/nonexistent/file.stl"))
+    def test_add_step(self, workflow):
+        """Test adding a step."""
+        step = workflow.add_step(
+            name="Print",
+            step_type=StepType.PRINT_3D,
+            description="Print the part",
+            estimated_time=60,
+        )
+
+        assert len(workflow.steps) == 1
+        assert step.name == "Print"
+
+    def test_add_multiple_steps(self, workflow):
+        """Test adding multiple steps."""
+        workflow.add_step("Step 1", StepType.PRINT_3D)
+        workflow.add_step("Step 2", StepType.ASSEMBLY)
+        workflow.add_step("Step 3", StepType.INSPECTION)
+
+        assert len(workflow.steps) == 3
+
+    def test_remove_step(self, workflow):
+        """Test removing a step."""
+        workflow.add_step("Remove Me", StepType.CUSTOM)
+        result = workflow.remove_step("Remove Me")
+
+        assert result is True
+        assert len(workflow.steps) == 0
+
+    def test_remove_nonexistent_step(self, workflow):
+        """Test removing non-existent step."""
+        result = workflow.remove_step("Not Found")
+        assert result is False
+
+    def test_get_step(self, workflow):
+        """Test getting a step by name."""
+        workflow.add_step("Find Me", StepType.PRINT_3D)
+        step = workflow.get_step("Find Me")
+
+        assert step is not None
+        assert step.name == "Find Me"
+
+    def test_get_nonexistent_step(self, workflow):
+        """Test getting non-existent step."""
+        step = workflow.get_step("Not Found")
+        assert step is None
+
+
+class TestValidation:
+    """Tests for workflow validation."""
+
+    @pytest.fixture
+    def workflow(self):
+        """Create a hybrid workflow."""
+        return HybridWorkflow()
+
+    def test_validate_empty(self, workflow):
+        """Test validating empty workflow."""
+        errors = workflow.validate()
+        assert "no steps" in errors[0].lower()
+
+    def test_validate_valid_workflow(self, workflow):
+        """Test validating valid workflow."""
+        workflow.add_step("Step 1", StepType.PRINT_3D)
+        workflow.add_step("Step 2", StepType.ASSEMBLY, dependencies=["Step 1"])
+
+        errors = workflow.validate()
+        assert len(errors) == 0
+
+    def test_validate_duplicate_names(self, workflow):
+        """Test duplicate step names."""
+        workflow.add_step("Same Name", StepType.PRINT_3D)
+        workflow.add_step("Same Name", StepType.ASSEMBLY)
+
+        errors = workflow.validate()
+        assert any("duplicate" in e.lower() for e in errors)
+
+    def test_validate_missing_dependency(self, workflow):
+        """Test missing dependency."""
+        workflow.add_step("Step", StepType.PRINT_3D, dependencies=["Missing"])
+
+        errors = workflow.validate()
+        assert any("non-existent" in e.lower() for e in errors)
+
+    def test_validate_circular_dependency(self, workflow):
+        """Test circular dependencies."""
+        workflow.add_step("A", StepType.PRINT_3D, dependencies=["B"])
+        workflow.add_step("B", StepType.ASSEMBLY, dependencies=["A"])
+
+        errors = workflow.validate()
+        assert any("circular" in e.lower() for e in errors)
+
+
+class TestExecution:
+    """Tests for workflow execution."""
+
+    @pytest.fixture
+    def workflow(self):
+        """Create a hybrid workflow."""
+        return HybridWorkflow()
+
+    def test_run_empty_workflow(self, workflow):
+        """Test running empty workflow."""
+        result = workflow.run()
+
         assert result.success is False
-        assert "not found" in result.message.lower()
+        assert "no steps" in result.error_message.lower()
 
-    def test_mock_upload(self):
-        """Test mock upload functionality."""
-        config = WorkflowConfig(use_mock_printer=True)
-        workflow = PrintWorkflow(config)
+    def test_run_simple_workflow(self, workflow):
+        """Test running simple workflow."""
+        workflow.add_step("Print", StepType.PRINT_3D, estimated_time=60)
+        workflow.add_step("Finish", StepType.FINISHING, estimated_time=30)
 
-        # Create a temporary test file
-        import tempfile
-        with tempfile.NamedTemporaryFile(suffix=".stl", delete=False) as f:
-            f.write(b"test content")
-            temp_path = Path(f.name)
+        result = workflow.run(dry_run=True)
 
-        try:
-            result = workflow.upload_to_printer(temp_path)
-            assert result.success is True
-            assert "mock" in result.message.lower()
-        finally:
-            temp_path.unlink()
+        assert result.success is True
+        assert result.steps_completed == 2
 
-    def test_cleanup(self):
-        """Test workflow cleanup."""
-        config = WorkflowConfig(use_mock_printer=True)
-        workflow = PrintWorkflow(config)
-        # Should not raise
-        workflow.cleanup()
+    def test_run_with_dependencies(self, workflow):
+        """Test running workflow with dependencies."""
+        workflow.add_step("Print", StepType.PRINT_3D)
+        workflow.add_step("Sand", StepType.FINISHING, dependencies=["Print"])
+        workflow.add_step("Paint", StepType.FINISHING, dependencies=["Sand"])
+
+        result = workflow.run(dry_run=True)
+
+        assert result.success is True
+        assert result.steps_completed == 3
+
+    def test_run_with_handler(self, workflow):
+        """Test running with custom handler."""
+        workflow.add_step("Custom", StepType.CUSTOM)
+
+        def handler(step):
+            return {"handled": True}
+
+        workflow.register_handler(StepType.CUSTOM, handler)
+        result = workflow.run()
+
+        assert result.success is True
+        step = workflow.get_step("Custom")
+        assert step.result == {"handled": True}
 
 
-class TestWorkflowStages:
-    """Tests for WorkflowStage enum."""
+class TestStatus:
+    """Tests for workflow status."""
 
-    def test_all_stages_defined(self):
-        """Test that all expected stages exist."""
-        expected = [
-            "IDLE", "MODELING", "EXPORTING", "VALIDATING",
-            "UPLOADING", "PRINTING", "MONITORING", "COMPLETED", "FAILED"
+    @pytest.fixture
+    def workflow(self):
+        """Create a hybrid workflow."""
+        wf = HybridWorkflow()
+        wf.add_step("Step 1", StepType.PRINT_3D)
+        wf.add_step("Step 2", StepType.ASSEMBLY)
+        return wf
+
+    def test_get_status_initial(self, workflow):
+        """Test initial status."""
+        status = workflow.get_status()
+
+        assert status["total_steps"] == 2
+        assert status["pending"] == 2
+        assert status["completed"] == 0
+
+    def test_get_status_after_run(self, workflow):
+        """Test status after running."""
+        workflow.run(dry_run=True)
+        status = workflow.get_status()
+
+        assert status["completed"] == 2
+        assert status["progress_percent"] == 100.0
+
+
+class TestReset:
+    """Tests for workflow reset."""
+
+    @pytest.fixture
+    def workflow(self):
+        """Create and run a workflow."""
+        wf = HybridWorkflow()
+        wf.add_step("Step 1", StepType.PRINT_3D)
+        wf.run(dry_run=True)
+        return wf
+
+    def test_reset_workflow(self, workflow):
+        """Test resetting workflow."""
+        workflow.reset()
+        status = workflow.get_status()
+
+        assert status["pending"] == 1
+        assert status["completed"] == 0
+
+
+class TestExport:
+    """Tests for workflow export."""
+
+    @pytest.fixture
+    def workflow(self):
+        """Create a workflow."""
+        wf = HybridWorkflow(WorkflowConfig(name="Test Workflow"))
+        wf.add_step("Print Base", StepType.PRINT_3D, estimated_time=60)
+        wf.add_step("Add Components", StepType.ASSEMBLY, dependencies=["Print Base"])
+        return wf
+
+    def test_export_plan(self, workflow):
+        """Test exporting workflow plan."""
+        plan = workflow.export_plan()
+
+        assert "Test Workflow" in plan
+        assert "Print Base" in plan
+        assert "Add Components" in plan
+
+
+class TestConvenienceFunctions:
+    """Tests for convenience functions."""
+
+    def test_create_workflow(self):
+        """Test create_workflow function."""
+        workflow = create_workflow(
+            name="My Workflow",
+            description="Test description",
+        )
+
+        assert workflow.config.name == "My Workflow"
+        assert workflow.config.description == "Test description"
+
+    def test_run_workflow(self):
+        """Test run_workflow function."""
+        steps = [
+            {"name": "Step 1", "type": "print_3d", "time": 30},
+            {"name": "Step 2", "type": "assembly", "time": 15},
         ]
-        for stage_name in expected:
-            assert hasattr(WorkflowStage, stage_name)
 
-    def test_stage_values(self):
-        """Test stage string values."""
-        assert WorkflowStage.IDLE.value == "idle"
-        assert WorkflowStage.PRINTING.value == "printing"
-        assert WorkflowStage.COMPLETED.value == "completed"
-        assert WorkflowStage.FAILED.value == "failed"
+        result = run_workflow(steps, name="Quick Test")
+
+        assert result.success is True
+        assert result.steps_completed == 2
+
+
+class TestIntegration:
+    """Integration tests for hybrid workflow."""
+
+    def test_full_workflow(self):
+        """Test complete workflow execution."""
+        # Create workflow
+        workflow = create_workflow(
+            name="Product Assembly",
+            description="Complete product assembly process",
+        )
+
+        # Add steps
+        workflow.add_step(
+            "Print Base",
+            StepType.PRINT_3D,
+            description="Print the base component",
+            estimated_time=120,
+        )
+        workflow.add_step(
+            "Print Cover",
+            StepType.PRINT_3D,
+            description="Print the cover",
+            estimated_time=90,
+        )
+        workflow.add_step(
+            "Laser Cut Gasket",
+            StepType.LASER_CUT,
+            description="Cut rubber gasket",
+            estimated_time=10,
+        )
+        workflow.add_step(
+            "Assembly",
+            StepType.ASSEMBLY,
+            description="Assemble all components",
+            estimated_time=30,
+            dependencies=["Print Base", "Print Cover", "Laser Cut Gasket"],
+        )
+        workflow.add_step(
+            "Inspection",
+            StepType.INSPECTION,
+            description="Quality check",
+            estimated_time=15,
+            dependencies=["Assembly"],
+        )
+
+        # Validate
+        errors = workflow.validate()
+        assert len(errors) == 0
+
+        # Check initial status
+        status = workflow.get_status()
+        assert status["total_steps"] == 5
+        assert status["pending"] == 5
+
+        # Run workflow
+        result = workflow.run(dry_run=True)
+        assert result.success is True
+        assert result.steps_completed == 5
+
+        # Check final status
+        status = workflow.get_status()
+        assert status["completed"] == 5
+
+        # Export plan
+        plan = workflow.export_plan()
+        assert "Product Assembly" in plan
+        assert "[x]" in plan  # Completed markers

@@ -1,66 +1,55 @@
-"""Blender automation module for 3D model creation and export."""
+"""Blender integration and design analysis for Claude Fab Lab."""
 
-# Note: Some imports will fail outside of Blender
-# Use runner.py for command-line automation
-
-# Standalone modules (work without Blender)
-from .mesh_repair import (
-    MeshAnalyzer,
-    MeshAnalysis,
-    MeshIssue,
-    MeshIssueType,
-    RepairSeverity,
-    analyze_mesh,
-    format_analysis,
+from src.blender.overhang_detector import (
+    OverhangDetector,
+    OverhangInfo,
+    OverhangSeverity,
 )
-from .parametric_edits import (
-    FeatureDetector,
-    ParametricEditor,
-    DetectedFeature,
-    FeatureType,
-    EditOperation,
-    EditResult,
-    detect_features,
-    resize_holes,
-    format_feature,
-    format_edit_result,
-    interpret_parametric_command,
+from src.blender.design_advisor import (
+    DesignAdvisor,
+    DesignIssue,
+    IssueSeverity,
+    DesignAdvice,
+    OrientationSuggestion,
 )
-
-# Blender-dependent modules are imported conditionally
-try:
-    from .mesh_repair import MeshRepairer
-    HAS_BLENDER_REPAIR = True
-except:
-    HAS_BLENDER_REPAIR = False
-    MeshRepairer = None
+from src.blender.support_generator import (
+    SupportGenerator,
+    SupportSettings,
+    SupportResult,
+    SupportStructure,
+    SupportType,
+    SupportDensity,
+    SupportPattern,
+)
+from src.blender.support_optimizer import (
+    SupportOptimizer,
+    OptimizationResult,
+    OptimizationSettings,
+    OptimizationGoal,
+    generate_optimized_supports,
+    compare_support_strategies,
+)
 
 __all__ = [
-    "primitives",
-    "exporter",
-    "mesh_utils",
-    "runner",
-    # Mesh repair (standalone)
-    "MeshAnalyzer",
-    "MeshAnalysis",
-    "MeshIssue",
-    "MeshIssueType",
-    "RepairSeverity",
-    "analyze_mesh",
-    "format_analysis",
-    # Mesh repair (Blender)
-    "MeshRepairer",
-    "HAS_BLENDER_REPAIR",
-    # Parametric edits
-    "FeatureDetector",
-    "ParametricEditor",
-    "DetectedFeature",
-    "FeatureType",
-    "EditOperation",
-    "EditResult",
-    "detect_features",
-    "resize_holes",
-    "format_feature",
-    "format_edit_result",
-    "interpret_parametric_command",
+    "OverhangDetector",
+    "OverhangInfo",
+    "OverhangSeverity",
+    "DesignAdvisor",
+    "DesignIssue",
+    "IssueSeverity",
+    "DesignAdvice",
+    "OrientationSuggestion",
+    "SupportGenerator",
+    "SupportSettings",
+    "SupportResult",
+    "SupportStructure",
+    "SupportType",
+    "SupportDensity",
+    "SupportPattern",
+    "SupportOptimizer",
+    "OptimizationResult",
+    "OptimizationSettings",
+    "OptimizationGoal",
+    "generate_optimized_supports",
+    "compare_support_strategies",
 ]

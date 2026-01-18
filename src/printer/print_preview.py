@@ -1,456 +1,587 @@
-"""
-Print Preview Module for Multi-Color 3D Printing.
+"""Print preview with AMS slot visualization.
 
-Generates detailed previews of print jobs before sending to printer, showing:
-- Color-to-AMS slot mapping
-- Material usage estimates
-- Warnings for missing colors or compatibility issues
-- Print time and cost estimates
+P4.8 / P1.7: Print Preview Enhancement
+
+Features:
+- Visual AMS slot mapping
+- Color preview render
+- HTML export for sharing
+- Material usage estimation
 """
 
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Set
 from pathlib import Path
-import math
+from typing import Dict, List, Optional, Tuple
+import json
 
-from .ams_manager import AMSManager, AMSSlot, FilamentInfo
+from src.materials.material_db import get_material, Material
+from src.materials.compatibility import check_multi_material_compatibility
+from src.utils import get_logger, format_duration
+
+logger = get_logger("printer.preview")
+
+
+# Common filament colors (CSS color values)
+FILAMENT_COLORS = {
+    "white": "#FFFFFF",
+    "black": "#1A1A1A",
+    "red": "#E63946",
+    "blue": "#457B9D",
+    "green": "#2A9D8F",
+    "yellow": "#F4A261",
+    "orange": "#E76F51",
+    "purple": "#6A4C93",
+    "pink": "#FFB5C5",
+    "gray": "#808080",
+    "silver": "#C0C0C0",
+    "gold": "#FFD700",
+    "transparent": "rgba(200, 200, 200, 0.3)",
+    "natural": "#F5F5DC",
+    "jade white": "#E8F5E9",
+    "matte black": "#2D2D2D",
+}
 
 
 @dataclass
-class ColorUsage:
-    """Usage information for a single color in the model."""
-    color: Tuple[float, float, float]  # RGB 0-1
-    color_name: str
-    triangle_count: int
-    estimated_volume_mm3: float  # Estimated material volume
-    percentage: float  # Percentage of total model
-    mapped_slot: Optional[int] = None  # AMS slot index, None if unmapped
+class AMSSlotConfig:
+    """Configuration for a single AMS slot."""
+
+    slot: int  # 1-4 for AMS, 5-8 for AMS Lite
+    material: str  # Material type (pla, petg, etc.)
+    color: str  # Color name or hex code
+    brand: Optional[str] = None
+    spool_id: Optional[str] = None  # Link to inventory
+
+    @property
+    def color_hex(self) -> str:
+        """Get the CSS color hex code."""
+        if self.color.startswith("#"):
+            return self.color
+        return FILAMENT_COLORS.get(self.color.lower(), "#808080")
+
+    @property
+    def material_obj(self) -> Optional[Material]:
+        """Get the Material object."""
+        return get_material(self.material)
 
 
 @dataclass
-class PrintPreviewWarning:
-    """Warning or notice about a print job."""
-    level: str  # 'info', 'warning', 'error'
-    message: str
-    suggestion: str = ""
+class LayerInfo:
+    """Information about a single layer."""
+
+    layer_number: int
+    z_height: float  # mm
+    material_slot: int  # Which AMS slot is used
+    line_width: float = 0.4  # mm
+    layer_height: float = 0.2  # mm
+
+
+@dataclass
+class PrintEstimate:
+    """Estimated print statistics."""
+
+    total_time_seconds: float
+    material_usage_grams: Dict[int, float]  # slot -> grams
+    total_layers: int
+    max_z_height: float
+    print_volume: Tuple[float, float, float]  # x, y, z in mm
 
 
 @dataclass
 class PrintPreview:
-    """Complete preview of a print job."""
-    # Model info
-    model_name: str
-    model_volume_mm3: float
-    triangle_count: int
+    """Complete print preview information."""
 
-    # Colors
-    colors: List[ColorUsage]
-    color_mapping: Dict[int, int]  # color_index -> ams_slot
+    filename: str
+    ams_slots: List[AMSSlotConfig]
+    estimate: Optional[PrintEstimate] = None
+    layers: List[LayerInfo] = field(default_factory=list)
+    thumbnail_path: Optional[str] = None
+    warnings: List[str] = field(default_factory=list)
+    compatibility_level: Optional[str] = None
 
-    # Estimates
-    estimated_print_time_seconds: float
-    estimated_filament_grams: float
-    estimated_cost_usd: float
+    def get_slot(self, slot_num: int) -> Optional[AMSSlotConfig]:
+        """Get AMS slot by number."""
+        for slot in self.ams_slots:
+            if slot.slot == slot_num:
+                return slot
+        return None
 
-    # Warnings
-    warnings: List[PrintPreviewWarning] = field(default_factory=list)
+    def get_materials(self) -> List[str]:
+        """Get list of materials used."""
+        return [s.material for s in self.ams_slots]
 
-    # Status
-    is_printable: bool = True
-    missing_colors: List[Tuple[float, float, float]] = field(default_factory=list)
+    def get_color_preview(self) -> Dict[int, str]:
+        """Get slot -> color mapping for preview."""
+        return {s.slot: s.color_hex for s in self.ams_slots}
 
-    @property
-    def estimated_print_time_formatted(self) -> str:
-        """Get print time as human-readable string."""
-        hours = int(self.estimated_print_time_seconds // 3600)
-        minutes = int((self.estimated_print_time_seconds % 3600) // 60)
-        if hours > 0:
-            return f"{hours}h {minutes}m"
-        return f"{minutes}m"
-
-    @property
-    def color_count(self) -> int:
-        """Number of unique colors in model."""
-        return len(self.colors)
-
-    @property
-    def mapped_color_count(self) -> int:
-        """Number of colors successfully mapped to AMS slots."""
-        return sum(1 for c in self.colors if c.mapped_slot is not None)
-
-
-class PrintPreviewGenerator:
-    """
-    Generates print previews for multi-color 3D models.
-
-    Usage:
-        generator = PrintPreviewGenerator(ams_manager)
-
-        # From mesh data
-        preview = generator.generate_preview(
-            model_name="my_model",
-            colors=[(1.0, 0.0, 0.0), (0.0, 0.0, 1.0)],
-            triangle_counts=[1000, 500],
-            total_volume_mm3=15000
-        )
-
-        # Display preview
-        print(generator.format_preview(preview))
-    """
-
-    # Default print settings for estimation
-    DEFAULT_LAYER_HEIGHT = 0.2  # mm
-    DEFAULT_PRINT_SPEED = 60  # mm/s average
-    DEFAULT_FILAMENT_DENSITY = 1.24  # g/cm³ (PLA)
-    DEFAULT_FILAMENT_COST_PER_KG = 25.0  # USD
-
-    def __init__(self, ams_manager: AMSManager = None):
-        """
-        Initialize preview generator.
-
-        Args:
-            ams_manager: AMS manager with loaded filament info
-        """
-        self.ams_manager = ams_manager or AMSManager()
-
-    def generate_preview(
-        self,
-        model_name: str,
-        colors: List[Tuple[float, float, float]],
-        triangle_counts: List[int],
-        total_volume_mm3: float,
-        material_type: str = "PLA"
-    ) -> PrintPreview:
-        """
-        Generate a complete print preview.
-
-        Args:
-            model_name: Name of the model
-            colors: List of RGB colors (0-1) used in model
-            triangle_counts: Number of triangles for each color
-            total_volume_mm3: Total model volume in mm³
-            material_type: Primary material type for estimation
-
-        Returns:
-            PrintPreview with all details
-        """
-        warnings = []
-        missing_colors = []
-
-        # Calculate color usage
-        total_triangles = sum(triangle_counts)
-        color_usages = []
-
-        for i, (color, tri_count) in enumerate(zip(colors, triangle_counts)):
-            percentage = (tri_count / total_triangles * 100) if total_triangles > 0 else 0
-            volume = total_volume_mm3 * (percentage / 100)
-
-            color_usages.append(ColorUsage(
-                color=color,
-                color_name=self._color_to_name(color),
-                triangle_count=tri_count,
-                estimated_volume_mm3=volume,
-                percentage=percentage
-            ))
-
-        # Map colors to AMS slots
-        color_mapping = {}
-        loaded_slots = self.ams_manager.get_loaded_slots()
-
-        for i, usage in enumerate(color_usages):
-            best_slot = self.ams_manager.find_closest_slot(usage.color)
-            if best_slot and not best_slot.is_empty:
-                slot_idx = best_slot.global_index
-                color_mapping[i] = slot_idx
-                usage.mapped_slot = slot_idx
-
-                # Check color match quality
-                distance = self.ams_manager.color_distance(
-                    usage.color,
-                    best_slot.filament.color
-                )
-                if distance > 0.3:
-                    warnings.append(PrintPreviewWarning(
-                        level="warning",
-                        message=f"Color '{usage.color_name}' mapped to '{best_slot.filament.color_name}' (poor match)",
-                        suggestion=f"Load a {usage.color_name} filament for better results"
-                    ))
-            else:
-                missing_colors.append(usage.color)
-                warnings.append(PrintPreviewWarning(
-                    level="error",
-                    message=f"No AMS slot found for color '{usage.color_name}'",
-                    suggestion=f"Load a {usage.color_name} filament into an AMS slot"
-                ))
-
-        # Estimate print time (rough calculation)
-        # Assume average path length per layer based on volume
-        estimated_layers = self._estimate_layer_count(total_volume_mm3)
-        time_per_layer = 30  # seconds average
-        color_change_time = 20  # seconds per change
-        estimated_changes = max(0, len(colors) - 1) * estimated_layers * 0.3  # ~30% layers have changes
-
-        estimated_time = (
-            estimated_layers * time_per_layer +
-            estimated_changes * color_change_time
-        )
-
-        # Estimate filament usage
-        filament_volume_cm3 = total_volume_mm3 / 1000 * 1.15  # Add 15% for infill, supports
-        filament_grams = filament_volume_cm3 * self.DEFAULT_FILAMENT_DENSITY
-
-        # Estimate cost
-        cost = (filament_grams / 1000) * self.DEFAULT_FILAMENT_COST_PER_KG
-
-        # Check printability
-        is_printable = len(missing_colors) == 0
-
-        if len(colors) > 16:
-            is_printable = False
-            warnings.append(PrintPreviewWarning(
-                level="error",
-                message=f"Model uses {len(colors)} colors, max is 16",
-                suggestion="Reduce color count by merging similar colors"
-            ))
-
-        if total_volume_mm3 > 300 * 300 * 300:  # Larger than build volume
-            warnings.append(PrintPreviewWarning(
-                level="warning",
-                message="Model may exceed build volume",
-                suggestion="Check model dimensions against printer specs"
-            ))
-
-        # Add info about color changes
-        if len(colors) > 1:
-            warnings.append(PrintPreviewWarning(
-                level="info",
-                message=f"Multi-color print: {len(colors)} colors, ~{int(estimated_changes)} color changes",
-                suggestion=""
-            ))
-
-        return PrintPreview(
-            model_name=model_name,
-            model_volume_mm3=total_volume_mm3,
-            triangle_count=total_triangles,
-            colors=color_usages,
-            color_mapping=color_mapping,
-            estimated_print_time_seconds=estimated_time,
-            estimated_filament_grams=filament_grams,
-            estimated_cost_usd=cost,
-            warnings=warnings,
-            is_printable=is_printable,
-            missing_colors=missing_colors
-        )
-
-    def format_preview(self, preview: PrintPreview) -> str:
-        """
-        Format preview as human-readable text.
-
-        Args:
-            preview: PrintPreview to format
-
-        Returns:
-            Formatted string
-        """
-        lines = [
-            "=" * 60,
-            f"PRINT PREVIEW: {preview.model_name}",
-            "=" * 60,
-            "",
-            "MODEL INFO:",
-            f"  Volume: {preview.model_volume_mm3:.1f} mm³ ({preview.model_volume_mm3/1000:.1f} cm³)",
-            f"  Triangles: {preview.triangle_count:,}",
-            f"  Colors: {preview.color_count}",
-            "",
-            "ESTIMATES:",
-            f"  Print Time: {preview.estimated_print_time_formatted}",
-            f"  Filament: {preview.estimated_filament_grams:.1f}g",
-            f"  Cost: ${preview.estimated_cost_usd:.2f}",
-            "",
-            "COLOR MAPPING:",
-        ]
-
-        for i, color in enumerate(preview.colors):
-            slot_info = "NOT MAPPED"
-            if color.mapped_slot is not None:
-                slot = self.ams_manager.get_slot_by_index(color.mapped_slot)
-                slot_info = slot.display_name
-
-            rgb_str = f"RGB({int(color.color[0]*255)}, {int(color.color[1]*255)}, {int(color.color[2]*255)})"
-            lines.append(
-                f"  {i+1}. {color.color_name} {rgb_str}"
-            )
-            lines.append(
-                f"      → {slot_info}"
-            )
-            lines.append(
-                f"      {color.percentage:.1f}% of model ({color.triangle_count:,} triangles)"
-            )
-
-        if preview.warnings:
-            lines.append("")
-            lines.append("WARNINGS:")
-            for warning in preview.warnings:
-                icon = {"info": "ℹ️", "warning": "⚠️", "error": "❌"}.get(warning.level, "•")
-                lines.append(f"  {icon} {warning.message}")
-                if warning.suggestion:
-                    lines.append(f"      Suggestion: {warning.suggestion}")
-
-        lines.append("")
-        lines.append("=" * 60)
-        status = "✅ READY TO PRINT" if preview.is_printable else "❌ NOT PRINTABLE"
-        lines.append(f"STATUS: {status}")
-        lines.append("=" * 60)
-
-        return "\n".join(lines)
-
-    def format_preview_compact(self, preview: PrintPreview) -> str:
-        """
-        Format preview as compact single-line summary.
-
-        Args:
-            preview: PrintPreview to format
-
-        Returns:
-            Compact summary string
-        """
-        status = "✅" if preview.is_printable else "❌"
-        return (
-            f"{status} {preview.model_name}: "
-            f"{preview.color_count} colors, "
-            f"{preview.estimated_print_time_formatted}, "
-            f"{preview.estimated_filament_grams:.0f}g, "
-            f"${preview.estimated_cost_usd:.2f}"
-        )
-
-    def _color_to_name(self, color: Tuple[float, float, float]) -> str:
-        """Convert RGB color to approximate name."""
-        r, g, b = color
-
-        # Check for grayscale
-        if abs(r - g) < 0.1 and abs(g - b) < 0.1:
-            brightness = (r + g + b) / 3
-            if brightness > 0.9:
-                return "White"
-            elif brightness < 0.1:
-                return "Black"
-            else:
-                return "Gray"
-
-        # Determine dominant color
-        max_channel = max(r, g, b)
-
-        if r == max_channel:
-            if g > 0.5:
-                return "Yellow" if b < 0.3 else "Pink"
-            elif b > 0.5:
-                return "Magenta"
-            else:
-                return "Red"
-        elif g == max_channel:
-            if r > 0.5:
-                return "Yellow"
-            elif b > 0.5:
-                return "Cyan"
-            else:
-                return "Green"
-        else:  # b == max_channel
-            if r > 0.5:
-                return "Purple"
-            elif g > 0.5:
-                return "Cyan"
-            else:
-                return "Blue"
-
-    def _estimate_layer_count(self, volume_mm3: float) -> int:
-        """Estimate number of print layers from volume."""
-        # Assume cubic-ish shape, estimate height
-        side_length = volume_mm3 ** (1/3)
-        layers = side_length / self.DEFAULT_LAYER_HEIGHT
-        return max(10, int(layers))
+    def to_dict(self) -> dict:
+        """Convert to dictionary for JSON serialization."""
+        return {
+            "filename": self.filename,
+            "ams_slots": [
+                {
+                    "slot": s.slot,
+                    "material": s.material,
+                    "color": s.color,
+                    "color_hex": s.color_hex,
+                    "brand": s.brand,
+                }
+                for s in self.ams_slots
+            ],
+            "estimate": {
+                "total_time": self.estimate.total_time_seconds if self.estimate else None,
+                "total_time_formatted": format_duration(self.estimate.total_time_seconds)
+                if self.estimate else None,
+                "material_usage": self.estimate.material_usage_grams if self.estimate else {},
+                "total_layers": self.estimate.total_layers if self.estimate else 0,
+                "max_z_height": self.estimate.max_z_height if self.estimate else 0,
+            },
+            "warnings": self.warnings,
+            "compatibility_level": self.compatibility_level,
+        }
 
 
-def create_print_preview(
-    model_name: str,
-    colors: List[Tuple[float, float, float]],
-    triangle_counts: List[int],
-    total_volume_mm3: float,
-    ams_config: Dict[int, Tuple[str, Tuple[float, float, float], str]] = None
+def generate_preview(
+    file_path: str,
+    ams_config: List[AMSSlotConfig],
+    check_compatibility: bool = True,
 ) -> PrintPreview:
     """
-    Convenience function to create a print preview.
+    Generate a print preview from a model file.
 
     Args:
-        model_name: Name of the model
-        colors: List of RGB colors (0-1)
-        triangle_counts: Triangle count per color
-        total_volume_mm3: Total volume
-        ams_config: Optional AMS configuration
-                   {slot_index: (color_name, rgb_color, material_type)}
+        file_path: Path to 3MF, STL, or GCODE file
+        ams_config: AMS slot configuration
+        check_compatibility: Whether to check material compatibility
 
     Returns:
-        PrintPreview
+        PrintPreview with all information
     """
-    ams = AMSManager()
+    path = Path(file_path)
+    warnings = []
 
-    # Configure AMS if provided
-    if ams_config:
-        for slot_idx, (color_name, rgb, material) in ams_config.items():
-            unit = slot_idx // 4
-            slot = slot_idx % 4
-            ams.set_slot(unit, slot, FilamentInfo(
-                color=rgb,
-                color_name=color_name,
-                material_type=material
-            ))
+    # Check material compatibility if requested
+    compatibility_level = None
+    if check_compatibility and len(ams_config) > 1:
+        materials = [s.material for s in ams_config]
+        result = check_multi_material_compatibility(materials)
+        compatibility_level = result.overall_compatibility.value
+        warnings.extend(result.warnings)
 
-    generator = PrintPreviewGenerator(ams)
-    return generator.generate_preview(
-        model_name=model_name,
-        colors=colors,
-        triangle_counts=triangle_counts,
-        total_volume_mm3=total_volume_mm3
+    # Check for material-specific warnings
+    for slot in ams_config:
+        mat = slot.material_obj
+        if mat:
+            if mat.properties.abrasive:
+                warnings.append(f"Slot {slot.slot} ({mat.name}): Requires hardened steel nozzle")
+            if mat.properties.toxic_fumes:
+                warnings.append(f"Slot {slot.slot} ({mat.name}): Ensure proper ventilation")
+            if mat.properties.hygroscopic:
+                warnings.append(f"Slot {slot.slot} ({mat.name}): Store in dry box when not printing")
+
+    # Create estimate based on file type
+    estimate = None
+    if path.suffix.lower() == ".gcode":
+        estimate = _parse_gcode_estimate(path)
+    elif path.suffix.lower() == ".3mf":
+        estimate = _parse_3mf_estimate(path)
+    else:
+        # For STL files, estimate based on typical slicing settings
+        estimate = _estimate_from_stl(path)
+
+    preview = PrintPreview(
+        filename=path.name,
+        ams_slots=ams_config,
+        estimate=estimate,
+        warnings=warnings,
+        compatibility_level=compatibility_level,
+    )
+
+    logger.info(f"Generated preview for {path.name}")
+    return preview
+
+
+def _parse_gcode_estimate(path: Path) -> Optional[PrintEstimate]:
+    """Parse print estimate from GCODE file."""
+    if not path.exists():
+        return None
+
+    try:
+        # Read first 100 lines for metadata
+        with open(path, "r") as f:
+            lines = [f.readline() for _ in range(100)]
+
+        total_time = None
+        material_usage = {}
+        total_layers = 0
+        max_z = 0
+
+        for line in lines:
+            line = line.strip()
+            # Bambu/PrusaSlicer format
+            if "; estimated printing time" in line.lower():
+                # Parse time from comment
+                parts = line.split("=")
+                if len(parts) > 1:
+                    total_time = _parse_time_string(parts[1].strip())
+            elif "; total filament used" in line.lower():
+                parts = line.split("=")
+                if len(parts) > 1:
+                    try:
+                        grams = float(parts[1].strip().replace("g", "").strip())
+                        material_usage[1] = grams
+                    except ValueError:
+                        pass
+            elif "; total layers" in line.lower():
+                parts = line.split("=")
+                if len(parts) > 1:
+                    try:
+                        total_layers = int(parts[1].strip())
+                    except ValueError:
+                        pass
+
+        return PrintEstimate(
+            total_time_seconds=total_time or 0,
+            material_usage_grams=material_usage,
+            total_layers=total_layers,
+            max_z_height=max_z,
+            print_volume=(0, 0, max_z),
+        )
+
+    except Exception as e:
+        logger.warning(f"Failed to parse GCODE: {e}")
+        return None
+
+
+def _parse_3mf_estimate(path: Path) -> Optional[PrintEstimate]:
+    """Parse print estimate from 3MF file."""
+    # 3MF is a ZIP file with XML content
+    # For now, return a placeholder
+    return PrintEstimate(
+        total_time_seconds=0,
+        material_usage_grams={},
+        total_layers=0,
+        max_z_height=0,
+        print_volume=(0, 0, 0),
     )
 
 
-# Test/demo code
-if __name__ == "__main__":
-    # Create AMS manager with some filaments loaded
-    ams = AMSManager()
-    ams.set_slot(0, 0, FilamentInfo(
-        color=(1.0, 1.0, 1.0),
-        color_name="White",
-        material_type="PLA"
-    ))
-    ams.set_slot(0, 1, FilamentInfo(
-        color=(1.0, 0.0, 0.0),
-        color_name="Red",
-        material_type="PLA"
-    ))
-    ams.set_slot(0, 2, FilamentInfo(
-        color=(0.0, 0.0, 1.0),
-        color_name="Blue",
-        material_type="PLA"
-    ))
-    ams.set_slot(0, 3, FilamentInfo(
-        color=(0.0, 0.0, 0.0),
-        color_name="Black",
-        material_type="PLA"
-    ))
-
-    # Generate preview
-    generator = PrintPreviewGenerator(ams)
-    preview = generator.generate_preview(
-        model_name="Phone Case",
-        colors=[
-            (1.0, 1.0, 1.0),  # White body
-            (1.0, 0.0, 0.0),  # Red accent
-            (0.0, 0.0, 0.0),  # Black logo
-        ],
-        triangle_counts=[5000, 500, 200],
-        total_volume_mm3=15000
+def _estimate_from_stl(path: Path) -> Optional[PrintEstimate]:
+    """Estimate print parameters from STL file dimensions."""
+    # Would use trimesh here to get actual dimensions
+    # For now, return placeholder
+    return PrintEstimate(
+        total_time_seconds=0,
+        material_usage_grams={},
+        total_layers=0,
+        max_z_height=0,
+        print_volume=(0, 0, 0),
     )
 
-    print(generator.format_preview(preview))
-    print()
-    print("Compact:", generator.format_preview_compact(preview))
+
+def _parse_time_string(time_str: str) -> float:
+    """Parse time string like '2h 30m 15s' into seconds."""
+    seconds = 0
+    parts = time_str.lower().split()
+
+    for part in parts:
+        if "h" in part:
+            try:
+                seconds += int(part.replace("h", "")) * 3600
+            except ValueError:
+                pass
+        elif "m" in part:
+            try:
+                seconds += int(part.replace("m", "")) * 60
+            except ValueError:
+                pass
+        elif "s" in part:
+            try:
+                seconds += int(part.replace("s", ""))
+            except ValueError:
+                pass
+
+    return seconds
+
+
+def export_preview_html(preview: PrintPreview, output_path: Optional[str] = None) -> str:
+    """
+    Export print preview as shareable HTML file.
+
+    Args:
+        preview: PrintPreview to export
+        output_path: Optional output path (default: same name as file)
+
+    Returns:
+        Path to generated HTML file
+    """
+    if output_path is None:
+        output_path = f"output/{Path(preview.filename).stem}_preview.html"
+
+    path = Path(output_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    # Generate AMS slot visualization
+    ams_slots_html = ""
+    for slot in preview.ams_slots:
+        mat = slot.material_obj
+        mat_name = mat.name if mat else slot.material.upper()
+        ams_slots_html += f"""
+        <div class="ams-slot">
+            <div class="slot-color" style="background-color: {slot.color_hex};"></div>
+            <div class="slot-info">
+                <div class="slot-number">Slot {slot.slot}</div>
+                <div class="slot-material">{mat_name}</div>
+                <div class="slot-color-name">{slot.color}</div>
+                {f'<div class="slot-brand">{slot.brand}</div>' if slot.brand else ''}
+            </div>
+        </div>
+        """
+
+    # Generate warnings HTML
+    warnings_html = ""
+    if preview.warnings:
+        warnings_html = '<div class="warnings"><h3>Warnings</h3><ul>'
+        for warning in preview.warnings:
+            warnings_html += f"<li>{warning}</li>"
+        warnings_html += "</ul></div>"
+
+    # Generate estimate HTML
+    estimate_html = ""
+    if preview.estimate and preview.estimate.total_time_seconds > 0:
+        estimate_html = f"""
+        <div class="estimate">
+            <h3>Print Estimate</h3>
+            <div class="estimate-item">
+                <span class="label">Time:</span>
+                <span class="value">{format_duration(preview.estimate.total_time_seconds)}</span>
+            </div>
+            <div class="estimate-item">
+                <span class="label">Layers:</span>
+                <span class="value">{preview.estimate.total_layers}</span>
+            </div>
+            <div class="estimate-item">
+                <span class="label">Height:</span>
+                <span class="value">{preview.estimate.max_z_height:.1f}mm</span>
+            </div>
+        </div>
+        """
+
+    # Compatibility badge
+    compat_html = ""
+    if preview.compatibility_level:
+        color_map = {
+            "excellent": "#4CAF50",
+            "good": "#8BC34A",
+            "fair": "#FFC107",
+            "poor": "#FF5722",
+            "incompatible": "#F44336",
+        }
+        color = color_map.get(preview.compatibility_level, "#9E9E9E")
+        compat_html = f"""
+        <div class="compatibility" style="background-color: {color};">
+            Material Compatibility: {preview.compatibility_level.upper()}
+        </div>
+        """
+
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Print Preview: {preview.filename}</title>
+    <style>
+        :root {{
+            --bg-color: #1a1a2e;
+            --card-bg: #16213e;
+            --text-color: #e8e8e8;
+            --accent-color: #0f3460;
+            --highlight: #e94560;
+        }}
+        body {{
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+        }}
+        .container {{
+            max-width: 800px;
+            margin: 0 auto;
+        }}
+        h1 {{
+            color: var(--highlight);
+            margin-bottom: 5px;
+        }}
+        .subtitle {{
+            color: #888;
+            margin-bottom: 30px;
+        }}
+        .card {{
+            background-color: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }}
+        .ams-container {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+        }}
+        .ams-slot {{
+            background-color: var(--accent-color);
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }}
+        .slot-color {{
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.2);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+        }}
+        .slot-number {{
+            font-size: 12px;
+            color: #888;
+        }}
+        .slot-material {{
+            font-weight: bold;
+        }}
+        .slot-color-name {{
+            font-size: 12px;
+            text-transform: capitalize;
+        }}
+        .slot-brand {{
+            font-size: 11px;
+            color: #666;
+        }}
+        .warnings {{
+            background-color: rgba(255, 152, 0, 0.1);
+            border-left: 3px solid #FF9800;
+            padding: 15px;
+            border-radius: 0 8px 8px 0;
+        }}
+        .warnings h3 {{
+            color: #FF9800;
+            margin-top: 0;
+        }}
+        .warnings ul {{
+            margin-bottom: 0;
+            padding-left: 20px;
+        }}
+        .warnings li {{
+            margin-bottom: 8px;
+        }}
+        .estimate {{
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 15px;
+        }}
+        .estimate h3 {{
+            grid-column: 1 / -1;
+            margin-top: 0;
+        }}
+        .estimate-item {{
+            background-color: var(--accent-color);
+            padding: 12px;
+            border-radius: 8px;
+            text-align: center;
+        }}
+        .estimate-item .label {{
+            display: block;
+            font-size: 12px;
+            color: #888;
+        }}
+        .estimate-item .value {{
+            display: block;
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 5px;
+        }}
+        .compatibility {{
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 14px;
+            margin-bottom: 20px;
+        }}
+        .footer {{
+            text-align: center;
+            color: #666;
+            font-size: 12px;
+            margin-top: 30px;
+        }}
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Print Preview</h1>
+        <p class="subtitle">{preview.filename}</p>
+
+        {compat_html}
+
+        <div class="card">
+            <h3>AMS Slot Configuration</h3>
+            <div class="ams-container">
+                {ams_slots_html}
+            </div>
+        </div>
+
+        {warnings_html}
+
+        <div class="card">
+            {estimate_html if estimate_html else '<p style="color: #666;">No print estimate available</p>'}
+        </div>
+
+        <div class="footer">
+            Generated by Claude Fab Lab
+        </div>
+    </div>
+</body>
+</html>
+"""
+
+    with open(path, "w") as f:
+        f.write(html)
+
+    logger.info(f"Exported preview HTML to {path}")
+    return str(path)
+
+
+def create_ams_config(
+    materials: List[str],
+    colors: Optional[List[str]] = None,
+    brands: Optional[List[str]] = None,
+) -> List[AMSSlotConfig]:
+    """
+    Helper to create AMS configuration from material list.
+
+    Args:
+        materials: List of material names
+        colors: Optional list of colors (default: auto-assign)
+        brands: Optional list of brand names
+
+    Returns:
+        List of AMSSlotConfig
+    """
+    default_colors = ["white", "black", "red", "blue", "green", "yellow", "orange", "purple"]
+
+    if colors is None:
+        colors = default_colors[:len(materials)]
+    if brands is None:
+        brands = [None] * len(materials)
+
+    configs = []
+    for i, (mat, color, brand) in enumerate(zip(materials, colors, brands)):
+        configs.append(AMSSlotConfig(
+            slot=i + 1,
+            material=mat.lower(),
+            color=color,
+            brand=brand,
+        ))
+
+    return configs

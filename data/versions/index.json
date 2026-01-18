@@ -1,0 +1,27 @@
+{
+  "designs": {
+    "47e66ad8": {
+      "id": "47e66ad8",
+      "name": "dragon_stand",
+      "original_path": "/Users/alexstinard/projects/claude-blender-bamboo/output/dragon_stand.stl",
+      "current_branch": "main",
+      "head": "fea29cad",
+      "created_at": "2026-01-17T21:37:35.786968"
+    }
+  },
+  "versions": {
+    "fea29cad": {
+      "version_id": "fea29cad",
+      "design_id": "47e66ad8",
+      "version_number": 1,
+      "message": "Initial dragon phone stand design",
+      "file_hash": "16a69b6bd24e034feabe998484f76ed0e3cf5fe3254d28ebbd9c59a0f0090ebd",
+      "file_size": 1518,
+      "timestamp": "2026-01-17T21:37:35.787335",
+      "parent_id": null,
+      "branch": "main",
+      "tags": [],
+      "metadata": {}
+    }
+  }
+}

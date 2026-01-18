@@ -1,3 +1,3 @@
-"""Blender + Bamboo Labs 3D Printer Integration."""
+"""Claude Fab Lab - AI-powered 3D printing workflow."""
 
-__version__ = "0.1.0"
+__version__ = "0.4.0"

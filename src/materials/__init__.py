@@ -1,48 +1,37 @@
-"""
-Materials module for Claude Fab Lab.
+"""Materials management for Claude Fab Lab."""
 
-Provides comprehensive material database for 3D printing filaments
-and laser-cuttable sheet materials.
-"""
-
-from .library import (
-    # Types
+from src.materials.material_db import (
+    Material,
     MaterialType,
-    MaterialProperty,
-    FilamentMaterial,
-    SheetMaterial,
-    # Databases
-    FILAMENTS,
-    SHEETS,
-    MATERIAL_ALIASES,
-    COLOR_ALIASES,
-    # Functions
+    MaterialProperties,
     get_material,
-    find_material,
-    get_color,
-    list_filaments,
-    list_sheets,
-    get_materials_by_property,
-    suggest_material,
+    get_materials_by_type,
+    MATERIAL_DATABASE,
+)
+from src.materials.compatibility import (
+    CompatibilityResult,
+    CompatibilityLevel,
+    check_compatibility,
+    check_multi_material_compatibility,
+    get_ams_recommendations,
+)
+from src.materials.inventory import (
+    Spool,
+    InventoryManager,
 )
 
 __all__ = [
-    # Types
+    "Material",
     "MaterialType",
-    "MaterialProperty",
-    "FilamentMaterial",
-    "SheetMaterial",
-    # Databases
-    "FILAMENTS",
-    "SHEETS",
-    "MATERIAL_ALIASES",
-    "COLOR_ALIASES",
-    # Functions
+    "MaterialProperties",
     "get_material",
-    "find_material",
-    "get_color",
-    "list_filaments",
-    "list_sheets",
-    "get_materials_by_property",
-    "suggest_material",
+    "get_materials_by_type",
+    "MATERIAL_DATABASE",
+    "CompatibilityResult",
+    "CompatibilityLevel",
+    "check_compatibility",
+    "check_multi_material_compatibility",
+    "get_ams_recommendations",
+    "Spool",
+    "InventoryManager",
 ]
