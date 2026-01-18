@@ -362,6 +362,13 @@
                 <button class="sound-toggle" id="sound-toggle" onclick="toggleSound()" title="Toggle Sound">
                     🔊
                 </button>
+                <button class="sound-toggle" id="mic-toggle" onclick="toggleVoice()" title="Voice Control (Hold to Speak)">
+                    🎤
+                </button>
+                <div class="status-item" id="connection-status">
+                    <div class="status-dot" id="connection-dot" style="background: #ff4444; box-shadow: 0 0 10px #ff4444;"></div>
+                    <span id="connection-text">OFFLINE</span>
+                </div>
             </div>
         </header>
 
@@ -432,6 +439,9 @@
             <button class="control-btn primary" onclick="startPrint()">Start Print</button>
             <button class="control-btn" onclick="startLaser()">Laser Cut</button>
             <button class="control-btn danger" onclick="emergencyStop()">Emergency Stop</button>
+
+            <div class="panel-title" style="margin-top: 20px;">Tools</div>
+            <button class="control-btn" onclick="launchBlender()">Launch Blender</button>
 
             <div class="progress-container" id="progress-container" style="display: none;">
                 <div class="progress-label">
@@ -1031,6 +1041,224 @@
         setInterval(updateClock, 1000);
         updateClock();
 
+        // ═══════════════════════════════════════════════════════════════════
+        // WEBSOCKET & API CONNECTION
+        // ═══════════════════════════════════════════════════════════════════
+
+        let ws = null;
+        let wsReconnectTimer = null;
+        const API_BASE = window.location.origin;
+        const WS_URL = `ws://${window.location.host}/ws`;
+
+        function connectWebSocket() {
+            if (ws && ws.readyState === WebSocket.OPEN) return;
+
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = function() {
+                setConnectionStatus(true);
+                log('Connected to JARVIS server', 'success');
+                sounds.ready();
+            };
+
+            ws.onmessage = function(event) {
+                const message = JSON.parse(event.data);
+                handleServerMessage(message);
+            };
+
+            ws.onclose = function() {
+                setConnectionStatus(false);
+                log('Disconnected from server', 'warning');
+                // Attempt reconnect after 3 seconds
+                wsReconnectTimer = setTimeout(connectWebSocket, 3000);
+            };
+
+            ws.onerror = function(error) {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        function setConnectionStatus(connected) {
+            const dot = document.getElementById('connection-dot');
+            const text = document.getElementById('connection-text');
+            if (connected) {
+                dot.style.background = '#00ff88';
+                dot.style.boxShadow = '0 0 10px #00ff88';
+                text.textContent = 'ONLINE';
+            } else {
+                dot.style.background = '#ff4444';
+                dot.style.boxShadow = '0 0 10px #ff4444';
+                text.textContent = 'OFFLINE';
+            }
+        }
+
+        function handleServerMessage(message) {
+            switch (message.type) {
+                case 'log':
+                    log(message.data.message, message.data.level);
+                    break;
+                case 'status':
+                    updateSystemStatus(message.data);
+                    break;
+                case 'connected':
+                    updateSystemStatus(message.data);
+                    break;
+                case 'command_result':
+                    // Command completed
+                    break;
+            }
+        }
+
+        function updateSystemStatus(status) {
+            if (status.bed_temp !== undefined) {
+                document.getElementById('bed-temp').textContent = status.bed_temp.toFixed(1) + '°C';
+            }
+            if (status.nozzle_temp !== undefined) {
+                document.getElementById('nozzle-temp').textContent = status.nozzle_temp.toFixed(1) + '°C';
+            }
+            if (status.progress !== undefined && status.progress > 0) {
+                showProgressFromStatus(status.message || 'Processing', status.progress);
+            } else {
+                document.getElementById('progress-container').style.display = 'none';
+            }
+        }
+
+        function showProgressFromStatus(label, percent) {
+            var container = document.getElementById('progress-container');
+            var labelEl = document.getElementById('progress-label');
+            var percentEl = document.getElementById('progress-percent');
+            var fillEl = document.getElementById('progress-fill');
+
+            container.style.display = 'block';
+            labelEl.textContent = label;
+            percentEl.textContent = Math.round(percent) + '%';
+            fillEl.style.width = percent + '%';
+        }
+
+        async function apiCall(endpoint, method = 'POST', data = null) {
+            try {
+                const options = {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' }
+                };
+                if (data) options.body = JSON.stringify(data);
+
+                const response = await fetch(API_BASE + '/api/' + endpoint, options);
+                return await response.json();
+            } catch (error) {
+                log('API Error: ' + error.message, 'error');
+                return { success: false, error: error.message };
+            }
+        }
+
+        function sendWSCommand(command) {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({ type: 'command', data: command }));
+            } else {
+                log('Not connected to server', 'error');
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // VOICE RECOGNITION
+        // ═══════════════════════════════════════════════════════════════════
+
+        let recognition = null;
+        let isListening = false;
+
+        function initVoiceRecognition() {
+            if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
+                log('Voice recognition not supported in this browser', 'warning');
+                return false;
+            }
+
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+
+            recognition.onstart = function() {
+                isListening = true;
+                document.getElementById('mic-toggle').style.background = 'rgba(0, 255, 136, 0.3)';
+                document.getElementById('mic-toggle').style.borderColor = '#00ff88';
+                log('Listening...', 'info');
+            };
+
+            recognition.onresult = function(event) {
+                const command = event.results[0][0].transcript;
+                log('Voice: "' + command + '"', 'info');
+                sounds.confirm();
+                processVoiceCommand(command);
+            };
+
+            recognition.onerror = function(event) {
+                log('Voice error: ' + event.error, 'error');
+                sounds.error();
+            };
+
+            recognition.onend = function() {
+                isListening = false;
+                document.getElementById('mic-toggle').style.background = 'transparent';
+                document.getElementById('mic-toggle').style.borderColor = 'rgba(0, 212, 255, 0.5)';
+            };
+
+            return true;
+        }
+
+        function toggleVoice() {
+            if (!recognition && !initVoiceRecognition()) {
+                sounds.error();
+                return;
+            }
+
+            if (isListening) {
+                recognition.stop();
+            } else {
+                sounds.click();
+                recognition.start();
+            }
+        }
+
+        function processVoiceCommand(command) {
+            command = command.toLowerCase();
+
+            // Use WebSocket if connected, otherwise API
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                sendWSCommand(command);
+            } else {
+                // Fallback to local processing
+                if (command.includes('scan')) startScan();
+                else if (command.includes('print')) startPrint();
+                else if (command.includes('analyze')) analyzeModel();
+                else if (command.includes('repair')) repairModel();
+                else if (command.includes('hollow')) hollowModel();
+                else if (command.includes('laser') || command.includes('cut')) startLaser();
+                else if (command.includes('stop') || command.includes('abort')) emergencyStop();
+                else if (command.includes('blender')) launchBlender();
+                else if (command.includes('status')) showStatus();
+                else log('Unknown command: ' + command, 'warning');
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════════
+        // BLENDER LAUNCHER
+        // ═══════════════════════════════════════════════════════════════════
+
+        async function launchBlender() {
+            sounds.confirm();
+            log('Launching Blender...', 'info');
+
+            const result = await apiCall('launch-blender');
+            if (result.success) {
+                sounds.success();
+                log('Blender launched!', 'success');
+            } else {
+                sounds.error();
+                log('Failed to launch Blender: ' + (result.error || 'Unknown error'), 'error');
+            }
+        }
+
         // Initialize sound on first user interaction (browser requirement)
         function initAudioOnInteraction() {
             sounds.init();
@@ -1044,7 +1272,13 @@
             initThreeJS();
             log('JARVIS Fabrication System initialized', 'info');
             log('All systems nominal', 'success');
+
+            // Try to connect to backend server
+            log('Connecting to server...', 'info');
+            connectWebSocket();
+
             log('Click anywhere to enable audio...', 'info');
+            log('Click 🎤 or say "Jarvis" for voice control', 'info');
             log('Ready for command...', 'info');
 
             // Browser requires user interaction to start audio
@@ -1059,6 +1293,9 @@
                     }
                 });
             });
+
+            // Initialize voice recognition
+            initVoiceRecognition();
         };
     </script>
 </body>
