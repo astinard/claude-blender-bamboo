@@ -1,0 +1,16 @@
+# Prometheus configuration for Claude Fab Lab
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  # Scrape the application metrics
+  - job_name: 'claude-fab-lab'
+    static_configs:
+      - targets: ['app:8080']
+    metrics_path: '/metrics'
+
+  # Scrape Prometheus itself
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
