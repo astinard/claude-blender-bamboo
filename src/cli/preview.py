@@ -99,7 +99,7 @@ def preview_print(file_path: str, materials: tuple, colors: tuple, export_html: 
 @preview.command("ar")
 @click.argument("file_path")
 @click.option("--serve", is_flag=True, help="Start local server for AR preview")
-@click.option("--port", default=8080, help="Server port (default: 8080)")
+@click.option("--port", default=9880, help="Server port (default: 9880)")
 def preview_ar(file_path: str, serve: bool, port: int) -> None:
     """Generate AR preview for iOS devices.
 

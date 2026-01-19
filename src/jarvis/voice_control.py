@@ -58,7 +58,7 @@ def _launch_dashboard(params: dict, context: dict = None) -> dict:
             }
     else:
         # Fall back to localhost server
-        url = "http://localhost:8000"
+        url = "http://localhost:9880"
         try:
             webbrowser.open(url)
             return {

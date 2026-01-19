@@ -9,7 +9,7 @@ console = Console()
 
 @click.command()
 @click.option("--host", "-h", default="0.0.0.0", help="Host to bind to")
-@click.option("--port", "-p", default=8080, type=int, help="Port to bind to")
+@click.option("--port", "-p", default=9880, type=int, help="Port to bind to")
 @click.option("--no-browser", is_flag=True, help="Don't open browser automatically")
 def dashboard(host: str, port: int, no_browser: bool) -> None:
     """Start the remote monitoring dashboard.

@@ -346,7 +346,7 @@ class SSOService:
     - JIT (Just-In-Time) provisioning
     """
 
-    BASE_URL = os.getenv("BASE_URL", "http://localhost:8080")
+    BASE_URL = os.getenv("BASE_URL", "http://localhost:9880")
 
     def __init__(self):
         self._configs: Dict[str, SSOConfig] = {}

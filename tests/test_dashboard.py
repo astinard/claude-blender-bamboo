@@ -133,7 +133,7 @@ class TestDashboardConfig:
         config = DashboardConfig()
 
         assert config.host == "0.0.0.0"
-        assert config.port == 8080
+        assert config.port == 9880
         assert config.enable_notifications is True
         assert config.enable_camera is True
         assert config.camera_fps == 10
@@ -197,7 +197,7 @@ class TestDashboard:
 
     def test_url_property(self, dashboard):
         """Test dashboard URL property."""
-        assert dashboard.url == "http://localhost:8080"
+        assert dashboard.url == "http://localhost:9880"
 
     def test_custom_url(self):
         """Test dashboard with custom config."""
@@ -301,7 +301,7 @@ class TestCreateDashboard:
         dash = create_dashboard()
 
         assert dash.config.host == "0.0.0.0"
-        assert dash.config.port == 8080
+        assert dash.config.port == 9880
 
     def test_create_custom(self):
         """Test creating dashboard with custom settings."""

@@ -64,7 +64,7 @@ class UserService:
     """Service for user management operations."""
 
     INVITE_EXPIRY_DAYS = 7
-    BASE_URL = os.getenv("BASE_URL", "http://localhost:8080")
+    BASE_URL = os.getenv("BASE_URL", "http://localhost:9880")
 
     def __init__(self, db: AsyncSession):
         self.db = db

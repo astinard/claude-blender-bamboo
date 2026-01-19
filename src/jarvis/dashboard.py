@@ -104,7 +104,7 @@ class PrintProgress:
 class DashboardConfig:
     """Dashboard configuration."""
     host: str = "0.0.0.0"
-    port: int = 8080
+    port: int = 9880
     enable_notifications: bool = True
     enable_camera: bool = True
     camera_fps: int = 10
@@ -773,7 +773,7 @@ class Dashboard:
 
 def create_dashboard(
     host: str = "0.0.0.0",
-    port: int = 8080,
+    port: int = 9880,
     enable_notifications: bool = True,
 ) -> Dashboard:
     """

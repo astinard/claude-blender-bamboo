@@ -51,7 +51,7 @@ class ARServer:
     Serves USDZ files and generates QR codes for iPhone AR viewing.
     """
 
-    def __init__(self, host: str = "0.0.0.0", port: int = 8080):
+    def __init__(self, host: str = "0.0.0.0", port: int = 9880):
         """
         Initialize AR server.
 

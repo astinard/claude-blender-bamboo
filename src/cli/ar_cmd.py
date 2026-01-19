@@ -76,7 +76,7 @@ def export(
 
 @ar.command()
 @click.argument("model_path", type=click.Path(exists=True))
-@click.option("--port", "-p", default=8080, help="Server port")
+@click.option("--port", "-p", default=9880, help="Server port")
 @click.option("--no-browser", is_flag=True, help="Don't open browser")
 @click.option("--no-qr", is_flag=True, help="Don't generate QR code")
 @click.pass_context

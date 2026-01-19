@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     # Web server
     web_host: str = Field(default="127.0.0.1", description="Web server host")
-    web_port: int = Field(default=8080, description="Web server port")
+    web_port: int = Field(default=9880, description="Web server port (unique: 9880)")
 
     # MQTT settings for Bambu Lab
     mqtt_host: Optional[str] = Field(default=None, description="MQTT broker host (usually printer IP)")
