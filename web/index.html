@@ -533,6 +533,9 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/STLLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
 
     <script>
         // State
@@ -755,6 +758,111 @@
             });
         }
 
+        // Load OBJ model with MTL materials (colors)
+        function loadColoredModel(objUrl, mtlUrl, name) {
+            document.getElementById('viewport-mode').textContent = 'LOADING COLORED MODEL...';
+
+            const mtlLoader = new THREE.MTLLoader();
+            mtlLoader.load(mtlUrl, function(materials) {
+                materials.preload();
+
+                const objLoader = new THREE.OBJLoader();
+                objLoader.setMaterials(materials);
+                objLoader.load(objUrl, function(object) {
+                    if (model) scene.remove(model);
+                    scene.children = scene.children.filter(c => c.type === 'GridHelper' || c.type === 'DirectionalLight' || c.type === 'AmbientLight');
+
+                    model = object;
+
+                    // Center and scale
+                    const box = new THREE.Box3().setFromObject(model);
+                    const center = box.getCenter(new THREE.Vector3());
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxDim = Math.max(size.x, size.y, size.z);
+
+                    model.position.sub(center);
+                    model.scale.multiplyScalar(4 / maxDim);
+                    model.position.y = 1.5;
+
+                    scene.add(model);
+
+                    // Count vertices
+                    let verts = 0;
+                    model.traverse(child => {
+                        if (child.isMesh && child.geometry) {
+                            verts += child.geometry.attributes.position.count;
+                        }
+                    });
+
+                    document.getElementById('vertex-count').textContent = verts.toLocaleString();
+                    document.getElementById('face-count').textContent = Math.floor(verts/3).toLocaleString();
+                    document.getElementById('model-size').textContent = '--';
+
+                    document.getElementById('viewport-mode').textContent = 'COLORED';
+                    logJarvis('Loaded colored model: ' + name);
+                    logJarvis('Colors: Blue (sole) + White (upper)');
+                }, function(xhr) {
+                    document.getElementById('viewport-mode').textContent = 'LOADING ' + Math.round(xhr.loaded/xhr.total*100) + '%';
+                }, function(error) {
+                    document.getElementById('viewport-mode').textContent = 'LOAD ERROR';
+                    console.error('OBJ load error:', error);
+                });
+            }, function(xhr) {
+                // MTL loading progress
+            }, function(error) {
+                console.error('MTL load error:', error);
+                // Try loading OBJ without materials
+                loadOBJWithoutMaterials(objUrl, name);
+            });
+        }
+
+        // Fallback: Load OBJ with default colored materials
+        function loadOBJWithoutMaterials(objUrl, name) {
+            const objLoader = new THREE.OBJLoader();
+            objLoader.load(objUrl, function(object) {
+                if (model) scene.remove(model);
+                scene.children = scene.children.filter(c => c.type === 'GridHelper' || c.type === 'DirectionalLight' || c.type === 'AmbientLight');
+
+                model = object;
+
+                // Apply colors based on material names
+                model.traverse(child => {
+                    if (child.isMesh) {
+                        const matName = child.material ? child.material.name : '';
+                        if (matName.toLowerCase().includes('blue') || matName.toLowerCase().includes('sole')) {
+                            child.material = new THREE.MeshPhongMaterial({ color: 0x3366ff, shininess: 80 });
+                        } else {
+                            child.material = new THREE.MeshPhongMaterial({ color: 0xffffff, shininess: 80 });
+                        }
+                    }
+                });
+
+                // Center and scale
+                const box = new THREE.Box3().setFromObject(model);
+                const center = box.getCenter(new THREE.Vector3());
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+
+                model.position.sub(center);
+                model.scale.multiplyScalar(4 / maxDim);
+                model.position.y = 1.5;
+
+                scene.add(model);
+
+                document.getElementById('viewport-mode').textContent = 'COLORED';
+                logJarvis('Loaded: ' + name);
+            });
+        }
+
+        // Load the colored shoe
+        function loadColoredShoe() {
+            loadColoredModel(
+                '/static/scans/imported/shoe_colored.obj',
+                '/static/scans/imported/shoe_colored.mtl',
+                'Shoe (Blue Sole + White Upper)'
+            );
+        }
+
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
@@ -802,6 +910,7 @@
             else if (c.includes('repair')) repairModel();
             else if (c.includes('hollow')) hollowModel();
             else if (c.includes('print')) startPrint();
+            else if (c.includes('colored') || c.includes('blue') || c.includes('color')) loadColoredShoe();
             else logJarvis("For modifications, talk to Claude Code - I'm your visual dashboard.");
         }
 

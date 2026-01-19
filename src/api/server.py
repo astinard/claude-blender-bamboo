@@ -65,6 +65,7 @@ class JARVISServer:
         self.app.router.add_get("/api/scans/watch-folder", self._get_watch_folder)
         self.app.router.add_static("/static", Path(__file__).parent.parent.parent / "web")
         self.app.router.add_static("/static/scans", Path(__file__).parent.parent.parent / "scans")
+        self.app.router.add_static("/static/output", Path(__file__).parent.parent.parent / "output")
 
     async def _websocket_handler(self, request):
         """Handle WebSocket connections."""
