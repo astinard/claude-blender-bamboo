@@ -316,6 +316,12 @@ class Dashboard:
 
     async def _handle_index(self, request: web.Request) -> web.Response:
         """Handle index page."""
+        # Try to serve JARVIS dashboard if it exists
+        jarvis_index = self._web_dir / "index.html"
+        if jarvis_index.exists():
+            html = jarvis_index.read_text()
+            return web.Response(text=html, content_type="text/html")
+        # Fall back to embedded dashboard
         html = self._generate_dashboard_html()
         return web.Response(text=html, content_type="text/html")
 
