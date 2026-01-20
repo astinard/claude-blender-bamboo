@@ -308,11 +308,17 @@ class Dashboard:
         self._app.router.add_get("/api/temperatures", self._handle_temperatures)
         self._app.router.add_get("/api/alerts", self._handle_alerts)
         self._app.router.add_post("/api/alerts/clear", self._handle_clear_alerts)
+        self._app.router.add_get("/api/scans", self._handle_scans)
         self._app.router.add_get("/ws", self._handle_websocket)
 
         # Static files
         if self._web_dir.exists():
             self._app.router.add_static("/static", self._web_dir)
+
+        # Serve scans directory for 3D models
+        scans_dir = Path(__file__).parent.parent.parent / "scans" / "imported"
+        if scans_dir.exists():
+            self._app.router.add_static("/scans", scans_dir)
 
     async def _handle_index(self, request: web.Request) -> web.Response:
         """Handle index page."""
@@ -342,6 +348,27 @@ class Dashboard:
         """Handle clear alerts API."""
         count = self.clear_alerts()
         return web.json_response({"cleared": count})
+
+    async def _handle_scans(self, request: web.Request) -> web.Response:
+        """Handle scans API - list available 3D models."""
+        scans_dir = Path(__file__).parent.parent.parent / "scans" / "imported"
+        scans = []
+
+        if scans_dir.exists():
+            for f in scans_dir.iterdir():
+                if f.suffix.lower() in ['.stl', '.obj', '.glb', '.gltf', '.3mf']:
+                    # Get file stats
+                    stat = f.stat()
+                    scans.append({
+                        "name": f.stem.replace('_', ' ').title(),
+                        "path": f"/scans/{f.name}",
+                        "filename": f.name,
+                        "format": f.suffix[1:].upper(),
+                        "size": stat.st_size,
+                        "modified": datetime.fromtimestamp(stat.st_mtime).isoformat(),
+                    })
+
+        return web.json_response({"success": True, "scans": scans})
 
     async def _handle_websocket(self, request: web.Request) -> web.WebSocketResponse:
         """Handle websocket connection."""

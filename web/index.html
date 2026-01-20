@@ -668,8 +668,8 @@
         }
 
         function loadScanModel(scan) {
-            const filename = scan.path.split('/').pop();
-            loadSTLModel('/static/scans/imported/' + filename, scan);
+            // Use the path directly from the API (already includes /scans/)
+            loadSTLModel(scan.path, scan);
         }
 
         function refreshScans() {
