@@ -669,7 +669,18 @@
 
         function loadScanModel(scan) {
             // Use the path directly from the API (already includes /scans/)
-            loadSTLModel(scan.path, scan);
+            const ext = scan.path.split('.').pop().toLowerCase();
+
+            if (ext === 'obj') {
+                // Try to load with materials (MTL file)
+                const mtlPath = scan.path.replace('.obj', '.mtl');
+                loadColoredModel(scan.path, mtlPath, scan.name);
+            } else if (ext === 'glb' || ext === 'gltf') {
+                loadGLBModel(scan.path, scan);
+            } else {
+                // STL and other formats
+                loadSTLModel(scan.path, scan);
+            }
         }
 
         function refreshScans() {
@@ -702,10 +713,19 @@
             grid.material.transparent = true;
             scene.add(grid);
 
-            scene.add(new THREE.AmbientLight(0x404040, 0.5));
-            const mainLight = new THREE.DirectionalLight(0x00d4ff, 0.8);
+            // Better lighting for colored models
+            scene.add(new THREE.AmbientLight(0xffffff, 0.6));  // White ambient
+            const mainLight = new THREE.DirectionalLight(0xffffff, 0.8);  // White main light
             mainLight.position.set(5, 10, 7);
             scene.add(mainLight);
+            // Secondary fill light for better color visibility
+            const fillLight = new THREE.DirectionalLight(0xffffff, 0.4);
+            fillLight.position.set(-5, 5, -5);
+            scene.add(fillLight);
+            // Accent light with slight blue tint for JARVIS aesthetic
+            const accentLight = new THREE.PointLight(0x00d4ff, 0.3, 20);
+            accentLight.position.set(0, -2, 0);
+            scene.add(accentLight);
 
             animate();
             window.addEventListener('resize', onResize);
@@ -854,6 +874,53 @@
             });
         }
 
+        // Load GLB/GLTF model with embedded materials
+        function loadGLBModel(url, scanInfo) {
+            document.getElementById('viewport-mode').textContent = 'LOADING GLB...';
+
+            const loader = new THREE.GLTFLoader();
+            loader.load(url, function(gltf) {
+                if (model) scene.remove(model);
+                scene.children = scene.children.filter(c => c.type === 'GridHelper' || c.type === 'DirectionalLight' || c.type === 'AmbientLight');
+
+                model = gltf.scene;
+
+                // Center and scale
+                const box = new THREE.Box3().setFromObject(model);
+                const center = box.getCenter(new THREE.Vector3());
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+
+                model.position.sub(center);
+                model.scale.multiplyScalar(4 / maxDim);
+                model.position.y = 1.5;
+
+                scene.add(model);
+
+                // Count vertices
+                let verts = 0;
+                model.traverse(child => {
+                    if (child.isMesh && child.geometry) {
+                        verts += child.geometry.attributes.position.count;
+                    }
+                });
+
+                document.getElementById('vertex-count').textContent = verts.toLocaleString();
+                document.getElementById('face-count').textContent = Math.floor(verts/3).toLocaleString();
+                document.getElementById('model-size').textContent = scanInfo ? (scanInfo.size / 1024 / 1024).toFixed(1) + ' MB' : '--';
+
+                document.getElementById('viewport-mode').textContent = 'COLORED';
+                logJarvis('Loaded GLB: ' + (scanInfo ? scanInfo.name : 'model'));
+            }, function(xhr) {
+                document.getElementById('viewport-mode').textContent = 'LOADING ' + Math.round(xhr.loaded/xhr.total*100) + '%';
+            }, function(error) {
+                document.getElementById('viewport-mode').textContent = 'GLB ERROR';
+                console.error('GLB load error:', error);
+                // Try STL fallback
+                logJarvis('GLB failed, trying STL...');
+            });
+        }
+
         // Load the colored shoe
         function loadColoredShoe() {
             loadColoredModel(
@@ -866,7 +933,10 @@
         function animate() {
             requestAnimationFrame(animate);
             controls.update();
-            if (model) model.material.opacity = 0.7 + Math.sin(Date.now() * 0.002) * 0.1;
+            // Only apply pulsing effect to single-material STL models
+            if (model && model.material && model.material.opacity !== undefined) {
+                model.material.opacity = 0.7 + Math.sin(Date.now() * 0.002) * 0.1;
+            }
             renderer.render(scene, camera);
         }
 
