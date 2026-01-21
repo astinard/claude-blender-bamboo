@@ -782,8 +782,10 @@
         function loadColoredModel(objUrl, mtlUrl, name) {
             document.getElementById('viewport-mode').textContent = 'LOADING COLORED MODEL...';
 
+            // Add cache buster to prevent stale materials
+            const cacheBuster = '?t=' + Date.now();
             const mtlLoader = new THREE.MTLLoader();
-            mtlLoader.load(mtlUrl, function(materials) {
+            mtlLoader.load(mtlUrl + cacheBuster, function(materials) {
                 materials.preload();
 
                 const objLoader = new THREE.OBJLoader();
