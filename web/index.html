@@ -525,6 +525,48 @@
         }
         .shortcut-desc { color: rgba(255, 255, 255, 0.7); }
 
+        /* Progress Ring */
+        .progress-ring-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .progress-ring { flex-shrink: 0; }
+        .progress-ring-fill { transition: stroke-dashoffset 0.5s ease; }
+        .progress-ring-info { flex: 1; }
+        .progress-ring-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid rgba(0, 212, 255, 0.1);
+            font-size: 0.75rem;
+        }
+        .progress-ring-label { color: rgba(255,255,255,0.4); font-family: 'Orbitron', monospace; font-size: 0.6rem; }
+        .progress-ring-val { color: var(--primary); font-family: 'Orbitron', monospace; font-size: 0.7rem; }
+
+        /* Settings Modal */
+        .settings-group { margin-bottom: 12px; }
+        .settings-label {
+            display: block;
+            font-family: 'Orbitron', monospace;
+            font-size: 0.65rem;
+            color: rgba(255,255,255,0.5);
+            margin-bottom: 4px;
+            text-transform: uppercase;
+            letter-spacing: 0.1rem;
+        }
+        .settings-input {
+            width: 100%;
+            padding: 8px 12px;
+            background: rgba(0,0,0,0.5);
+            border: 1px solid var(--primary-dim);
+            color: var(--primary);
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.9rem;
+        }
+        .settings-input:focus { outline: none; border-color: var(--primary); }
+        .settings-input option { background: #0a0a12; }
+
         .boot-overlay {
             position: fixed;
             top: 0; left: 0; right: 0; bottom: 0;
@@ -577,6 +619,43 @@
             <div class="shortcut-row"><span class="shortcut-key">R</span><span class="shortcut-desc">Reset camera</span></div>
             <div class="shortcut-row"><span class="shortcut-key">?</span><span class="shortcut-desc">This help</span></div>
             <div style="margin-top: 15px; text-align: center; color: rgba(255,255,255,0.4); font-size: 0.75rem;">Press ESC or ? to close</div>
+        </div>
+    </div>
+
+    <!-- Printer Settings Modal -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="modal" style="min-width:450px;">
+            <h2>// Printer Settings</h2>
+            <div class="settings-group">
+                <label class="settings-label">Printer IP Address</label>
+                <input type="text" class="settings-input" id="printer-ip" placeholder="192.168.1.100">
+            </div>
+            <div class="settings-group">
+                <label class="settings-label">Access Code</label>
+                <input type="password" class="settings-input" id="printer-access-code" placeholder="Access code from printer">
+            </div>
+            <div class="settings-group">
+                <label class="settings-label">Serial Number</label>
+                <input type="text" class="settings-input" id="printer-serial" placeholder="Serial number">
+            </div>
+            <div class="settings-group">
+                <label class="settings-label">Printer Model</label>
+                <select class="settings-input" id="printer-model">
+                    <option value="">Select model...</option>
+                    <option value="a1">Bambu Lab A1</option>
+                    <option value="a1-mini">Bambu Lab A1 Mini</option>
+                    <option value="p1s">Bambu Lab P1S</option>
+                    <option value="p1p">Bambu Lab P1P</option>
+                    <option value="x1c">Bambu Lab X1 Carbon</option>
+                    <option value="x1e">Bambu Lab X1E</option>
+                </select>
+            </div>
+            <div style="display:flex;gap:10px;margin-top:20px;">
+                <button class="control-btn primary" onclick="testConnection()" style="flex:1;">Test Connection</button>
+                <button class="control-btn" onclick="saveSettings()" style="flex:1;">Save</button>
+            </div>
+            <div id="connection-test-result" style="margin-top:10px;font-size:0.8rem;color:rgba(255,255,255,0.5);"></div>
+            <div style="margin-top:15px;text-align:center;color:rgba(255,255,255,0.4);font-size:0.75rem;">Press ESC to close</div>
         </div>
     </div>
 
@@ -681,6 +760,27 @@
         </div>
 
         <div class="panel right-panel">
+            <!-- Print Progress Ring -->
+            <div class="action-section" id="progress-ring-section" style="display:none;">
+                <div class="panel-title">Print Progress</div>
+                <div class="progress-ring-wrapper">
+                    <svg class="progress-ring" width="120" height="120" viewBox="0 0 120 120">
+                        <circle class="progress-ring-bg" cx="60" cy="60" r="52" fill="none" stroke="rgba(0,212,255,0.1)" stroke-width="8"/>
+                        <circle class="progress-ring-fill" id="progress-ring-fill" cx="60" cy="60" r="52" fill="none"
+                            stroke="var(--primary)" stroke-width="8" stroke-linecap="round"
+                            stroke-dasharray="326.73" stroke-dashoffset="326.73"
+                            transform="rotate(-90 60 60)"/>
+                        <text x="60" y="55" text-anchor="middle" fill="var(--primary)" font-family="Orbitron" font-size="22" font-weight="700" id="progress-ring-pct">0%</text>
+                        <text x="60" y="75" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-family="Orbitron" font-size="8" id="progress-ring-layer">--/--</text>
+                    </svg>
+                    <div class="progress-ring-info">
+                        <div class="progress-ring-row"><span class="progress-ring-label">FILE</span><span class="progress-ring-val" id="prog-file">--</span></div>
+                        <div class="progress-ring-row"><span class="progress-ring-label">ETA</span><span class="progress-ring-val" id="prog-eta">--</span></div>
+                        <div class="progress-ring-row"><span class="progress-ring-label">ELAPSED</span><span class="progress-ring-val" id="prog-elapsed">--</span></div>
+                    </div>
+                </div>
+            </div>
+
             <div class="action-section">
                 <div class="panel-title">Capture</div>
                 <button class="control-btn primary" onclick="importScan()">Import Polycam Scan</button>
@@ -697,6 +797,7 @@
             <div class="action-section">
                 <div class="panel-title">Fabrication</div>
                 <button class="control-btn primary" onclick="startPrint()">Send to Printer</button>
+                <button class="control-btn" onclick="showSettings()">Printer Settings</button>
                 <button class="control-btn danger" onclick="emergencyStop()">Emergency Stop</button>
             </div>
 
@@ -1553,6 +1654,7 @@
                         break;
                     case 'Escape':
                         document.getElementById('help-modal').classList.remove('visible');
+                        document.getElementById('settings-modal').classList.remove('visible');
                         break;
                 }
             });
@@ -1665,6 +1767,94 @@
             showToast('EMERGENCY STOP', 'error');
         }
 
+        // ============== SETTINGS ==============
+        function showSettings() {
+            document.getElementById('settings-modal').classList.add('visible');
+            // Load saved settings
+            const saved = localStorage.getItem('jarvis-printer-settings');
+            if (saved) {
+                const s = JSON.parse(saved);
+                document.getElementById('printer-ip').value = s.ip || '';
+                document.getElementById('printer-access-code').value = s.accessCode || '';
+                document.getElementById('printer-serial').value = s.serial || '';
+                document.getElementById('printer-model').value = s.model || '';
+            }
+        }
+
+        function saveSettings() {
+            const settings = {
+                ip: document.getElementById('printer-ip').value,
+                accessCode: document.getElementById('printer-access-code').value,
+                serial: document.getElementById('printer-serial').value,
+                model: document.getElementById('printer-model').value,
+            };
+            localStorage.setItem('jarvis-printer-settings', JSON.stringify(settings));
+            showToast('Settings saved', 'success');
+            logJarvis('Printer settings saved. IP: ' + (settings.ip || 'not set'));
+            document.getElementById('settings-modal').classList.remove('visible');
+        }
+
+        function testConnection() {
+            const ip = document.getElementById('printer-ip').value;
+            const result = document.getElementById('connection-test-result');
+            if (!ip) {
+                result.textContent = 'Enter a printer IP address first.';
+                result.style.color = 'var(--warning)';
+                return;
+            }
+            result.textContent = 'Testing connection to ' + ip + '...';
+            result.style.color = 'var(--primary)';
+
+            fetch('/api/printer/test', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ip: ip })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    result.textContent = 'Connected! Printer: ' + (data.printer || ip);
+                    result.style.color = 'var(--success)';
+                    showToast('Printer connected', 'success');
+                } else {
+                    result.textContent = 'Connection failed: ' + (data.error || 'Unknown error');
+                    result.style.color = 'var(--danger)';
+                }
+            })
+            .catch(() => {
+                result.textContent = 'Printer connection API not yet available. Settings saved for when printer is connected.';
+                result.style.color = 'var(--warning)';
+            });
+        }
+
+        // ============== PRINT PROGRESS RING ==============
+        function updateProgressRing(percent, layer, totalLayers, fileName, elapsed, remaining) {
+            const section = document.getElementById('progress-ring-section');
+            section.style.display = 'block';
+
+            const circumference = 2 * Math.PI * 52; // r=52
+            const offset = circumference - (percent / 100) * circumference;
+
+            document.getElementById('progress-ring-fill').style.strokeDashoffset = offset;
+            document.getElementById('progress-ring-pct').textContent = Math.round(percent) + '%';
+            document.getElementById('progress-ring-layer').textContent = layer + '/' + totalLayers;
+            document.getElementById('prog-file').textContent = fileName || '--';
+            document.getElementById('prog-eta').textContent = formatTimeShort(remaining);
+            document.getElementById('prog-elapsed').textContent = formatTimeShort(elapsed);
+        }
+
+        function formatTimeShort(seconds) {
+            if (!seconds && seconds !== 0) return '--';
+            const h = Math.floor(seconds / 3600);
+            const m = Math.floor((seconds % 3600) / 60);
+            if (h > 0) return h + 'h ' + m + 'm';
+            return m + 'm';
+        }
+
+        function hideProgressRing() {
+            document.getElementById('progress-ring-section').style.display = 'none';
+        }
+
         // ============== CLOCK ==============
         setInterval(() => {
             document.getElementById('clock').textContent = new Date().toLocaleTimeString('en-US', { hour12: false });
@@ -1692,6 +1882,29 @@
                     const ws = new WebSocket('ws://' + location.host + '/ws');
                     ws.onopen = () => { dot.style.background = 'var(--success)'; txt.textContent = 'ONLINE'; };
                     ws.onclose = () => { dot.style.background = 'var(--danger)'; txt.textContent = 'OFFLINE'; };
+                    ws.onmessage = (e) => {
+                        try {
+                            const msg = JSON.parse(e.data);
+                            if (msg.type === 'state' && msg.data) {
+                                const s = msg.data;
+                                // Update printer status
+                                document.getElementById('printer-status').textContent = (s.status || 'IDLE').toUpperCase();
+                                // Update progress ring if printing
+                                if (s.progress && s.status === 'printing') {
+                                    updateProgressRing(
+                                        s.progress.progress_percent,
+                                        s.progress.layer_current,
+                                        s.progress.layer_total,
+                                        s.progress.file_name,
+                                        s.progress.time_elapsed,
+                                        s.progress.time_remaining
+                                    );
+                                } else {
+                                    hideProgressRing();
+                                }
+                            }
+                        } catch (err) {}
+                    };
                 } catch (e) { dot.style.background = 'var(--warning)'; txt.textContent = 'LOCAL'; }
             }, 2000);
         };

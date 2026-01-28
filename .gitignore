@@ -50,5 +50,8 @@ data/*.db
 .env
 .env.local
 
+# Config (may contain printer credentials)
+config/settings.json
+
 # Claude
 .claude/

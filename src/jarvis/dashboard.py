@@ -310,6 +310,9 @@ class Dashboard:
         self._app.router.add_post("/api/alerts/clear", self._handle_clear_alerts)
         self._app.router.add_get("/api/scans", self._handle_scans)
         self._app.router.add_post("/api/scans/upload", self._handle_scan_upload)
+        self._app.router.add_post("/api/printer/test", self._handle_printer_test)
+        self._app.router.add_get("/api/settings", self._handle_get_settings)
+        self._app.router.add_post("/api/settings", self._handle_save_settings)
         self._app.router.add_get("/ws", self._handle_websocket)
 
         # Static files
@@ -370,6 +373,54 @@ class Dashboard:
                     })
 
         return web.json_response({"success": True, "scans": scans})
+
+    async def _handle_printer_test(self, request: web.Request) -> web.Response:
+        """Handle printer connection test."""
+        try:
+            data = await request.json()
+            ip = data.get("ip", "")
+
+            if not ip:
+                return web.json_response(
+                    {"success": False, "error": "No IP provided"}, status=400
+                )
+
+            # For now, return a helpful message since printer isn't connected yet
+            logger.info(f"Printer connection test requested for {ip}")
+            return web.json_response({
+                "success": False,
+                "error": "Printer connection via MQTT not yet configured. Install bambulabs-api to enable.",
+                "ip": ip,
+            })
+
+        except Exception as e:
+            return web.json_response(
+                {"success": False, "error": str(e)}, status=500
+            )
+
+    async def _handle_get_settings(self, request: web.Request) -> web.Response:
+        """Handle get settings."""
+        settings_file = Path(__file__).parent.parent.parent / "config" / "settings.json"
+        if settings_file.exists():
+            settings = json.loads(settings_file.read_text())
+        else:
+            settings = {}
+        return web.json_response({"success": True, "settings": settings})
+
+    async def _handle_save_settings(self, request: web.Request) -> web.Response:
+        """Handle save settings."""
+        try:
+            data = await request.json()
+            config_dir = Path(__file__).parent.parent.parent / "config"
+            config_dir.mkdir(exist_ok=True)
+            settings_file = config_dir / "settings.json"
+            settings_file.write_text(json.dumps(data, indent=2))
+            logger.info("Settings saved")
+            return web.json_response({"success": True})
+        except Exception as e:
+            return web.json_response(
+                {"success": False, "error": str(e)}, status=500
+            )
 
     async def _handle_scan_upload(self, request: web.Request) -> web.Response:
         """Handle scan file upload."""
