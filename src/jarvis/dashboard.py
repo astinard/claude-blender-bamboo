@@ -309,6 +309,7 @@ class Dashboard:
         self._app.router.add_get("/api/alerts", self._handle_alerts)
         self._app.router.add_post("/api/alerts/clear", self._handle_clear_alerts)
         self._app.router.add_get("/api/scans", self._handle_scans)
+        self._app.router.add_post("/api/scans/upload", self._handle_scan_upload)
         self._app.router.add_get("/ws", self._handle_websocket)
 
         # Static files
@@ -369,6 +370,58 @@ class Dashboard:
                     })
 
         return web.json_response({"success": True, "scans": scans})
+
+    async def _handle_scan_upload(self, request: web.Request) -> web.Response:
+        """Handle scan file upload."""
+        scans_dir = Path(__file__).parent.parent.parent / "scans" / "imported"
+        scans_dir.mkdir(parents=True, exist_ok=True)
+
+        try:
+            reader = await request.multipart()
+            field = await reader.next()
+
+            if field is None or field.name != "file":
+                return web.json_response(
+                    {"success": False, "error": "No file provided"}, status=400
+                )
+
+            filename = field.filename
+            if not filename:
+                return web.json_response(
+                    {"success": False, "error": "No filename"}, status=400
+                )
+
+            # Validate extension
+            ext = Path(filename).suffix.lower()
+            if ext not in [".stl", ".obj", ".glb", ".gltf", ".3mf", ".mtl"]:
+                return web.json_response(
+                    {"success": False, "error": f"Unsupported format: {ext}"}, status=400
+                )
+
+            # Save file
+            filepath = scans_dir / filename
+            size = 0
+            with open(filepath, "wb") as f:
+                while True:
+                    chunk = await field.read_chunk()
+                    if not chunk:
+                        break
+                    size += len(chunk)
+                    f.write(chunk)
+
+            logger.info(f"Uploaded scan: {filename} ({size} bytes)")
+            return web.json_response({
+                "success": True,
+                "filename": filename,
+                "size": size,
+                "path": f"/scans/{filename}",
+            })
+
+        except Exception as e:
+            logger.error(f"Upload error: {e}")
+            return web.json_response(
+                {"success": False, "error": str(e)}, status=500
+            )
 
     async def _handle_websocket(self, request: web.Request) -> web.WebSocketResponse:
         """Handle websocket connection."""
